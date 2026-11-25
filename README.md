@@ -61,7 +61,7 @@ Notas:
 ### Postman contra Vercel
 
 Importar `postman/PayLink-Vercel.postman_environment.json`, cambiar `baseUrl` por la URL del proyecto
-(p. ej. `https://<proyecto>.vercel.app`) y ejecutar la colección con ese environment. Swagger queda en
+(`https://demo-transaccional.vercel.app`) y ejecutar la colección con ese environment. Swagger queda en
 `https://<proyecto>.vercel.app/swagger-ui.html`.
 
 Si el proyecto tiene **Deployment Protection** (Vercel Authentication) activa, Postman recibirá `401`/página de
