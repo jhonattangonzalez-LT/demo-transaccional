@@ -18,10 +18,12 @@
 
     <div class="actions">
         <form method="post" th:action="@{/bank/{code}/authorize(code=${bank.code}, tx=${tx.id})}">
+            <input type="hidden" name="session" th:value="${sessionToken}">
             <input type="hidden" name="approve" value="false">
             <button class="btn btn-ko" type="submit">Rechazar</button>
         </form>
         <form method="post" th:action="@{/bank/{code}/authorize(code=${bank.code}, tx=${tx.id})}">
+            <input type="hidden" name="session" th:value="${sessionToken}">
             <input type="hidden" name="approve" value="true">
             <button class="btn btn-ok" type="submit">Aprobar pago</button>
         </form>

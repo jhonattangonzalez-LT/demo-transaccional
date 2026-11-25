@@ -1,11 +1,13 @@
 # PayLink — Datos de prueba
 
-> Todos los datos son **ficticios** y se cargan desde `src/main/resources/data.sql` en cada arranque
-> (H2 en memoria: al reiniciar la aplicación los saldos vuelven a sus valores iniciales).
+> Todos los datos son **ficticios**. Local: se cargan desde `data.sql` en cada arranque (H2 en memoria).
+> Vercel: se cargan una vez en Postgres desde `data-postgres.sql` y **persisten** entre peticiones.
+> En ambos casos `POST /api/v1/demo/reset` (header `X-Api-Key: demo-api-key-123`) devuelve todo al estado
+> inicial: borra transacciones/movimientos/sesiones y restablece los saldos de esta guía.
 > No usar datos personales reales en este ambiente.
 
-- URL base: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- URL base local: `http://localhost:8080` — Vercel: `https://<proyecto>.vercel.app`
+- Swagger UI: `<URL base>/swagger-ui.html`
 - Moneda: COP (montos con máximo 2 decimales)
 
 ## 1. Bancos
@@ -67,7 +69,7 @@ Transiciones: `CREATED → PENDING → APPROVED | REJECTED | EXPIRED`. Una trans
 | 6 | `GET /api/v1/accounts/9000000001/balance` | — | `1150000.00` (1.000.000 + 150.000) |
 | 7 | `GET /api/v1/accounts/1000000001/movements?transactionId={transactionId}` | — | 1 movimiento `DEBIT` por 150000.00 |
 
-> Los saldos esperados asumen la aplicación recién iniciada y este como primer pago.
+> Los saldos esperados asumen los datos recién restablecidos (`POST /api/v1/demo/reset`) y este como primer pago.
 
 ### 5.2 Pago rechazado por el usuario — Ana, Banco Andino
 

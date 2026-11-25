@@ -8,8 +8,44 @@
   "item": [
     {
       "name": "1. Setup",
-      "description": "Consulta de bancos y saldos iniciales (se guardan como línea base para las verificaciones).",
+      "description": "Restablece los datos demo, consulta bancos y saldos iniciales (línea base para las verificaciones).",
       "item": [
+        {
+          "name": "Restablecer datos de prueba",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Datos restablecidos\", function () { pm.expect(pm.response.json().message).to.include(\"restablecidos\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/demo/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "demo",
+                "reset"
+              ]
+            }
+          }
+        },
         {
           "name": "Listar bancos",
           "event": [

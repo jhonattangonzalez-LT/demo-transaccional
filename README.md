@@ -12,7 +12,8 @@ Postman.
 
 - Java 21 (compila con `release 21`; probado también ejecutando sobre JDK 25)
 - Spring Boot 3.5.7, Maven (incluye Maven Wrapper, no requiere Maven instalado)
-- Spring Web, Spring Data JPA, Validation, Thymeleaf, H2 en memoria
+- Spring Web, Spring Data JPA, Validation, Thymeleaf
+- H2 en memoria (local y pruebas) / PostgreSQL – Neon (perfil `vercel`)
 - springdoc-openapi 2.8.9 (Swagger UI / OpenAPI 3.1)
 
 ## Cómo ejecutar
@@ -36,6 +37,36 @@ Pruebas (unitarias de `PaymentService` + integración del camino feliz con MockM
 ```bash
 mvnw.cmd test        # o ./mvnw test
 ```
+
+## Despliegue en Vercel (Postgres / Neon)
+
+El proyecto se despliega como **imagen de contenedor** con `Dockerfile.vercel` (Vercel lo detecta solo; no requiere
+`vercel.json`). En Vercel cada petición puede atenderla una instancia distinta y las instancias se apagan tras unos
+minutos sin tráfico, por eso el perfil `vercel` usa **PostgreSQL** (no H2) y las sesiones bancarias se guardan en BD.
+
+1. En Vercel: *Add New → Project → Import* del repositorio (Framework preset: **Other**; no hace falta build command).
+2. En *Settings → Environment Variables* agregar **`DATABASE_URL`** con la cadena de conexión de Neon tal como la
+   entrega Neon (`postgresql://usuario:clave@host/neondb?sslmode=require...`). Si se conecta Neon desde el
+   Marketplace de Vercel, esta variable se inyecta automáticamente.
+   Alternativa: `SPRING_DATASOURCE_URL` (JDBC), `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`.
+3. Desplegar. Al arrancar, la app crea/actualiza las tablas y carga los datos semilla de forma idempotente
+   (`data-postgres.sql`).
+
+Notas:
+- **No** guardar credenciales en el repositorio; solo como variables de entorno en Vercel.
+- El primer request tras un periodo sin tráfico tarda unos segundos (arranque en frío de la JVM).
+- `POST /api/v1/demo/reset` (header `X-Api-Key`) devuelve los datos a su estado inicial; la colección Postman lo
+  llama al comenzar.
+
+### Postman contra Vercel
+
+Importar `postman/PayLink-Vercel.postman_environment.json`, cambiar `baseUrl` por la URL del proyecto
+(p. ej. `https://<proyecto>.vercel.app`) y ejecutar la colección con ese environment. Swagger queda en
+`https://<proyecto>.vercel.app/swagger-ui.html`.
+
+Si el proyecto tiene **Deployment Protection** (Vercel Authentication) activa, Postman recibirá `401`/página de
+login: desactivarla para el ambiente que se comparta, o usar *Protection Bypass for Automation* y enviar el header
+`x-vercel-protection-bypass` en la colección.
 
 ## Flujo
 
@@ -83,6 +114,7 @@ Una transacción en `PENDING` por más de 15 minutos pasa a `EXPIRED` (motivo `P
 | POST | `/api/v1/bank/{bankCode}/authorize` | Body `{transactionId, bankSessionToken, approve}` → `APPROVED` / `REJECTED` | 200, 400, 401, 404, 409 |
 | GET | `/api/v1/accounts/{number}/balance` | Saldo actual | 200, 404 |
 | GET | `/api/v1/accounts/{number}/movements?transactionId=` | Movimientos (DEBIT/CREDIT), filtro opcional por transacción | 200, 404 |
+| POST | `/api/v1/demo/reset` | Restablece datos demo (header `X-Api-Key`) | 200, 401 |
 
 Errores con formato uniforme:
 
@@ -125,10 +157,11 @@ Comercio: **Tienda Demo S.A.S.** — NIT `900000001` — API key `demo-api-key-1
 
 Archivos en `postman/`:
 
-- `PayLink.postman_collection.json` (v2.1) — 47 requests, 97 assertions.
-- `PayLink.postman_environment.json` — `baseUrl`, `apiKey`, `payerAccount`, `merchantAccount`.
+- `PayLink.postman_collection.json` (v2.1) — 48 requests, 99 assertions.
+- `PayLink.postman_environment.json` — local (`http://localhost:8080`).
+- `PayLink-Vercel.postman_environment.json` — Vercel (cambiar `baseUrl` por la URL del despliegue).
 
-Carpetas: **1. Setup**, **2. Pago aprobado (camino feliz)**, **3. Pago rechazado por el usuario**,
+Carpetas: **1. Setup** (incluye reset de datos demo), **2. Pago aprobado (camino feliz)**, **3. Pago rechazado por el usuario**,
 **4. Fondos insuficientes**, **5. Errores de validación** (monto negativo, API key inválida, banco inexistente,
 documento inexistente, transiciones inválidas 409, clave errada, etc.).
 

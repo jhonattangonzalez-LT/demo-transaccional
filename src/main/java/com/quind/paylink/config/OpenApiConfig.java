@@ -30,7 +30,8 @@ public class OpenApiConfig {
 
                                 API key del comercio demo: `demo-api-key-123`. Clave simulada de los pagadores: `1234`.
                                 """))
-                .servers(List.of(new Server().url("http://localhost:8080").description("Local")))
+                // Sin servidor fijo: Swagger usa el host desde el que se abre (local o Vercel)
+                .servers(List.of(new Server().url("/").description("Servidor actual")))
                 .components(new Components().addSecuritySchemes(API_KEY_SCHEME, new SecurityScheme()
                         .type(SecurityScheme.Type.APIKEY)
                         .in(SecurityScheme.In.HEADER)

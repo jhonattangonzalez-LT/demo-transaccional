@@ -7,14 +7,18 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080",
-      "description": "Local"
+      "url": "/",
+      "description": "Servidor actual"
     }
   ],
   "tags": [
     {
       "name": "2. Bancos",
       "description": "Bancos disponibles y portal bancario simulado (autenticación y autorización)"
+    },
+    {
+      "name": "4. Demo",
+      "description": "Utilidades del mockup"
     },
     {
       "name": "1. Pagos",
@@ -154,6 +158,44 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/demo/reset": {
+      "post": {
+        "tags": [
+          "4. Demo"
+        ],
+        "summary": "Restablecer datos de prueba",
+        "description": "Borra transacciones, movimientos y sesiones bancarias y devuelve las cuentas a sus saldos iniciales. Requiere la API key del comercio demo.",
+        "operationId": "reset",
+        "responses": {
+          "200": {
+            "description": "Datos restablecidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key ausente o inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "merchantApiKey": []
+          }
+        ]
       }
     },
     "/api/v1/bank/{bankCode}/authorize": {

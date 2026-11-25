@@ -6,6 +6,7 @@ import com.quind.paylink.dto.BankAuthenticateResponse;
 import com.quind.paylink.dto.BankAuthorizeRequest;
 import com.quind.paylink.dto.BankResponse;
 import com.quind.paylink.dto.ErrorResponse;
+import com.quind.paylink.model.BankSession;
 import com.quind.paylink.model.Transaction;
 import com.quind.paylink.service.BankService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,8 +54,9 @@ public class BankApiController {
     public BankAuthenticateResponse authenticate(
             @Parameter(example = "ANDINO") @PathVariable String bankCode,
             @Valid @RequestBody BankAuthenticateRequest request) {
-        BankService.BankSession s = bankService.authenticate(bankCode, request);
-        return new BankAuthenticateResponse(s.token(), s.transactionId(), s.bankCode(), s.holderName(), s.expiresAt());
+        BankSession s = bankService.authenticate(bankCode, request);
+        return new BankAuthenticateResponse(s.getToken(), s.getTransactionId(), s.getBankCode(), s.getHolderName(),
+                s.getExpiresAt());
     }
 
     @Operation(summary = "Autorizar o rechazar el débito",
