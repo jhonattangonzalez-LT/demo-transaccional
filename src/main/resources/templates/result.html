@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{fragments :: head('Comprobante')}"></head>
+<body>
+<header th:replace="~{fragments :: topbar}"></header>
+<ol th:replace="~{fragments :: steps(${step})}"></ol>
+
+<div class="card">
+    <h1>Comprobante de pago</h1>
+    <p>
+        <span class="badge" th:classappend="'badge-' + ${tx.status}" th:text="${tx.status}">APPROVED</span>
+        <span class="hint" th:if="${tx.statusReason}" th:text="' Motivo: ' + ${tx.statusReason}"></span>
+    </p>
+    <table class="summary">
+        <tr><th>Comercio</th><td th:text="${tx.merchant.name}">Tienda Demo S.A.S.</td></tr>
+        <tr><th>Referencia</th><td th:text="${tx.reference}">PL-...</td></tr>
+        <tr><th>ID transacción</th><td th:text="${tx.id}">uuid</td></tr>
+        <tr><th>Descripción</th><td th:text="${tx.description}">-</td></tr>
+        <tr><th>Valor</th><td class="amount" th:text="'$ ' + ${#numbers.formatDecimal(tx.amount, 1, 'POINT', 2, 'COMMA')}">$ 0</td></tr>
+        <tr><th>Banco</th><td th:text="${bankName}">Banco</td></tr>
+        <tr><th>Fecha</th><td th:text="${#temporals.format(tx.updatedAt, 'yyyy-MM-dd HH:mm:ss')}">fecha</td></tr>
+    </table>
+
+    <a class="btn btn-primary" th:href="${tx.returnUrl != null ? tx.returnUrl : '/'}"
+       th:text="'Volver a ' + ${tx.merchant.name}">Volver al comercio</a>
+</div>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+</body>
+</html>

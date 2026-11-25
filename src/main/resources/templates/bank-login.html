@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{fragments :: head(${bank.name})}"></head>
+<body>
+<div class="bank-header" th:classappend="'bank-' + ${bank.code}" th:text="${bank.name}">Banco</div>
+<ol th:replace="~{fragments :: steps(${step})}"></ol>
+
+<div class="card">
+    <h1>Ingreso seguro (simulado)</h1>
+    <p class="hint">
+        Pago a <strong th:text="${tx.merchant.name}">comercio</strong> por
+        <strong th:text="'$ ' + ${#numbers.formatDecimal(tx.amount, 1, 'POINT', 2, 'COMMA')}">$ 0</strong>
+        · Ref. <span th:text="${tx.reference}">PL-...</span>
+    </p>
+
+    <div class="alert alert-error" th:if="${error}" th:text="${error}">Error</div>
+
+    <form method="post" th:action="@{/bank/{code}/login(code=${bank.code}, tx=${tx.id})}">
+        <label for="documentType">Tipo de documento</label>
+        <select id="documentType" name="documentType" required>
+            <option th:each="d : ${documentTypes}" th:value="${d}" th:text="${d}"
+                    th:selected="${d == tx.payerDocumentType}">CC</option>
+        </select>
+
+        <label for="documentNumber">Número de documento</label>
+        <input id="documentNumber" name="documentNumber" type="text" required th:value="${tx.payerDocumentNumber}">
+
+        <label for="password">Clave</label>
+        <input id="password" name="password" type="password" required autocomplete="off">
+        <p class="hint">Clave simulada para todas las cuentas de prueba: 1234</p>
+
+        <button class="btn btn-primary" type="submit">Ingresar</button>
+    </form>
+</div>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+</body>
+</html>

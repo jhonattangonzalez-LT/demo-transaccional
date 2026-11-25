@@ -1,0 +1,970 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PayLink API",
+    "description": "Pasarela de pagos **simulada** (mockup educativo) por débito a cuenta bancaria.\nTodos los datos son ficticios.\n\nFlujo: crear orden → listar bancos → iniciar pago → autenticar en el banco →\nautorizar/rechazar → verificar estado, saldos y movimientos.\n\nAPI key del comercio demo: `demo-api-key-123`. Clave simulada de los pagadores: `1234`.\n",
+    "version": "v1"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "2. Bancos",
+      "description": "Bancos disponibles y portal bancario simulado (autenticación y autorización)"
+    },
+    {
+      "name": "1. Pagos",
+      "description": "Creación, inicio y consulta de transacciones"
+    },
+    {
+      "name": "3. Cuentas",
+      "description": "Verificación de saldos y movimientos (abierto solo por ser mockup)"
+    }
+  ],
+  "paths": {
+    "/api/v1/payments": {
+      "post": {
+        "tags": [
+          "1. Pagos"
+        ],
+        "summary": "Crear orden de pago (comercio)",
+        "description": "Crea la transacción en estado CREATED. Requiere el header X-Api-Key del comercio.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Orden creada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Monto o datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key ausente o inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "merchantApiKey": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/{id}/start": {
+      "post": {
+        "tags": [
+          "1. Pagos"
+        ],
+        "summary": "Iniciar pago (pagador)",
+        "description": "El pagador elige banco, tipo de persona y documento. La transacción pasa a PENDING y se devuelve la URL del portal del banco.",
+        "operationId": "start",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pago iniciado (PENDING)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartPaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transacción, banco o cuenta del documento inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La transacción no está en CREATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bank/{bankCode}/authorize": {
+      "post": {
+        "tags": [
+          "2. Bancos"
+        ],
+        "summary": "Autorizar o rechazar el débito",
+        "description": "approve=true con saldo suficiente: debita al pagador, acredita al comercio y deja la transacción APPROVED (todo en una sola transacción de BD). Sin saldo: REJECTED / INSUFFICIENT_FUNDS. approve=false: REJECTED / USER_CANCELLED.",
+        "operationId": "authorize",
+        "parameters": [
+          {
+            "name": "bankCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ANDINO"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankAuthorizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Decisión procesada (ver status y statusReason)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión bancaria inválida, usada o expirada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Banco o transacción inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La transacción no está en PENDING (p. ej. ya aprobada)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bank/{bankCode}/authenticate": {
+      "post": {
+        "tags": [
+          "2. Bancos"
+        ],
+        "summary": "Autenticar pagador en el banco simulado",
+        "description": "Valida documento + clave simulada (1234) contra la transacción PENDING y devuelve un bankSessionToken de un solo uso que vence en 10 minutos.",
+        "operationId": "authenticate",
+        "parameters": [
+          {
+            "name": "bankCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ANDINO"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankAuthenticateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Autenticado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankAuthenticateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos o banco distinto al de la transacción",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales bancarias inválidas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Banco o transacción inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La transacción no está en PENDING",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{id}": {
+      "get": {
+        "tags": [
+          "1. Pagos"
+        ],
+        "summary": "Consultar transacción por id",
+        "description": "Si lleva más de 15 minutos en PENDING se marca EXPIRED al consultarla.",
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalle de la transacción",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Id con formato inválido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/reference/{reference}": {
+      "get": {
+        "tags": [
+          "1. Pagos"
+        ],
+        "summary": "Consultar transacción por referencia",
+        "operationId": "getByReference",
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "PL-20261125-ABC234"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalle de la transacción",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/banks": {
+      "get": {
+        "tags": [
+          "2. Bancos"
+        ],
+        "summary": "Listar bancos disponibles",
+        "operationId": "banks",
+        "responses": {
+          "200": {
+            "description": "Bancos ficticios",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BankResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{number}/movements": {
+      "get": {
+        "tags": [
+          "3. Cuentas"
+        ],
+        "summary": "Listar movimientos (DEBIT / CREDIT) de una cuenta",
+        "description": "Filtro opcional por transacción.",
+        "operationId": "movements",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 1000000001
+          },
+          {
+            "name": "transactionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movimientos en orden cronológico",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovementResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cuenta inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{number}/balance": {
+      "get": {
+        "tags": [
+          "3. Cuentas"
+        ],
+        "summary": "Consultar saldo de una cuenta",
+        "operationId": "balance",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 1000000001
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saldo actual",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BalanceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cuenta inexistente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreatePaymentRequest": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Valor en COP, > 0 y máximo 2 decimales",
+            "example": 150000,
+            "minimum": 0
+          },
+          "description": {
+            "type": "string",
+            "example": "Compra de prueba en Tienda Demo",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "returnUrl": {
+            "type": "string",
+            "description": "URL http(s) de retorno al comercio (opcional)",
+            "example": "https://tienda-demo.example/retorno",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "amount",
+          "description"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "CreatePaymentResponse": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "FAILED",
+              "EXPIRED"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "checkoutUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "StartPaymentRequest": {
+        "type": "object",
+        "properties": {
+          "bankCode": {
+            "type": "string",
+            "description": "ANDINO | CONDOR | PACIFICO",
+            "example": "ANDINO",
+            "minLength": 1
+          },
+          "personType": {
+            "type": "string",
+            "enum": [
+              "NATURAL",
+              "JURIDICA"
+            ],
+            "example": "NATURAL"
+          },
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "CC",
+              "NIT",
+              "CE"
+            ],
+            "example": "CC"
+          },
+          "documentNumber": {
+            "type": "string",
+            "example": 1000000001,
+            "maxLength": 20,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "bankCode",
+          "documentNumber",
+          "documentType",
+          "personType"
+        ]
+      },
+      "StartPaymentResponse": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "FAILED",
+              "EXPIRED"
+            ]
+          },
+          "bankCode": {
+            "type": "string"
+          },
+          "bankRedirectUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "BankAuthorizeRequest": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "transactionId devuelto al crear la orden"
+          },
+          "bankSessionToken": {
+            "type": "string",
+            "description": "Token devuelto por /authenticate (un solo uso)",
+            "minLength": 1
+          },
+          "approve": {
+            "type": "boolean",
+            "description": "true = aprobar el débito, false = rechazarlo",
+            "example": true
+          }
+        },
+        "required": [
+          "approve",
+          "bankSessionToken",
+          "transactionId"
+        ]
+      },
+      "AuthorizeResponse": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "FAILED",
+              "EXPIRED"
+            ]
+          },
+          "statusReason": {
+            "type": "string",
+            "enum": [
+              "INSUFFICIENT_FUNDS",
+              "USER_CANCELLED",
+              "PENDING_TIMEOUT",
+              "PROCESSING_ERROR"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "resultUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "BankAuthenticateRequest": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "transactionId devuelto al crear la orden"
+          },
+          "documentType": {
+            "type": "string",
+            "enum": [
+              "CC",
+              "NIT",
+              "CE"
+            ],
+            "example": "CC"
+          },
+          "documentNumber": {
+            "type": "string",
+            "example": 1000000001,
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "Clave simulada",
+            "example": 1234,
+            "minLength": 1
+          }
+        },
+        "required": [
+          "documentNumber",
+          "documentType",
+          "password",
+          "transactionId"
+        ]
+      },
+      "BankAuthenticateResponse": {
+        "type": "object",
+        "properties": {
+          "bankSessionToken": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bankCode": {
+            "type": "string"
+          },
+          "holderName": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "merchantName": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "FAILED",
+              "EXPIRED"
+            ]
+          },
+          "statusReason": {
+            "type": "string",
+            "enum": [
+              "INSUFFICIENT_FUNDS",
+              "USER_CANCELLED",
+              "PENDING_TIMEOUT",
+              "PROCESSING_ERROR"
+            ]
+          },
+          "payerBankCode": {
+            "type": "string"
+          },
+          "personType": {
+            "type": "string",
+            "enum": [
+              "NATURAL",
+              "JURIDICA"
+            ]
+          },
+          "payerDocumentType": {
+            "type": "string",
+            "enum": [
+              "CC",
+              "NIT",
+              "CE"
+            ]
+          },
+          "payerDocumentNumber": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "returnUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "BankResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "MovementResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DEBIT",
+              "CREDIT"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "balanceAfter": {
+            "type": "number"
+          },
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BalanceResponse": {
+        "type": "object",
+        "properties": {
+          "accountNumber": {
+            "type": "string"
+          },
+          "holderName": {
+            "type": "string"
+          },
+          "bankCode": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PAYER",
+              "MERCHANT"
+            ]
+          },
+          "balance": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "merchantApiKey": {
+        "type": "apiKey",
+        "description": "API key del comercio (solo requerida para crear órdenes)",
+        "name": "X-Api-Key",
+        "in": "header"
+      }
+    }
+  }
+}

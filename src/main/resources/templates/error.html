@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{fragments :: head('Error')}"></head>
+<body>
+<header th:replace="~{fragments :: topbar}"></header>
+
+<div class="card">
+    <h1 th:text="'Error ' + ${status}">Error</h1>
+    <div class="alert alert-error" th:text="${message != null and message != '' ? message : error}">Ocurrió un error</div>
+    <a class="btn btn-primary" th:href="@{/}">Volver al inicio</a>
+</div>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+</body>
+</html>

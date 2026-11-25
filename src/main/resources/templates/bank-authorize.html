@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{fragments :: head(${bank.name})}"></head>
+<body>
+<div class="bank-header" th:classappend="'bank-' + ${bank.code}" th:text="${bank.name}">Banco</div>
+<ol th:replace="~{fragments :: steps(${step})}"></ol>
+
+<div class="card">
+    <h1>Autorizar débito</h1>
+    <p>Hola, <strong th:text="${holderName}">cliente</strong>. Confirma el débito de tu cuenta:</p>
+    <table class="summary">
+        <tr><th>Comercio</th><td th:text="${tx.merchant.name}">Tienda Demo S.A.S.</td></tr>
+        <tr><th>Referencia</th><td th:text="${tx.reference}">PL-...</td></tr>
+        <tr><th>Descripción</th><td th:text="${tx.description}">-</td></tr>
+        <tr><th>Cuenta a debitar</th><td th:text="'****' + ${#strings.substring(tx.payerAccountNumber, #strings.length(tx.payerAccountNumber) - 4)}">****0001</td></tr>
+        <tr><th>Valor</th><td class="amount" th:text="'$ ' + ${#numbers.formatDecimal(tx.amount, 1, 'POINT', 2, 'COMMA')}">$ 0</td></tr>
+    </table>
+
+    <div class="actions">
+        <form method="post" th:action="@{/bank/{code}/authorize(code=${bank.code}, tx=${tx.id})}">
+            <input type="hidden" name="approve" value="false">
+            <button class="btn btn-ko" type="submit">Rechazar</button>
+        </form>
+        <form method="post" th:action="@{/bank/{code}/authorize(code=${bank.code}, tx=${tx.id})}">
+            <input type="hidden" name="approve" value="true">
+            <button class="btn btn-ok" type="submit">Aprobar pago</button>
+        </form>
+    </div>
+</div>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+</body>
+</html>

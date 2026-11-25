@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · PayLink'">PayLink</title>
+    <link rel="stylesheet" th:href="@{/css/paylink.css}">
+</head>
+<body>
+
+<header th:fragment="topbar" class="topbar">
+    <a class="logo" th:href="@{/}">Pay<span>Link</span></a>
+    <small>Pasarela de pagos simulada · mockup educativo</small>
+</header>
+
+<ol th:fragment="steps(step)" class="steps">
+    <li data-n="1" th:classappend="${step == 1} ? 'active' : (${step > 1} ? 'done' : '')">Datos del pago</li>
+    <li data-n="2" th:classappend="${step == 2} ? 'active' : (${step > 2} ? 'done' : '')">Autenticación</li>
+    <li data-n="3" th:classappend="${step == 3} ? 'active' : (${step > 3} ? 'done' : '')">Autorización</li>
+    <li data-n="4" th:classappend="${step == 4} ? 'active' : ''">Resultado</li>
+</ol>
+
+<footer th:fragment="footer">
+    PayLink es una pasarela ficticia con fines demostrativos. No procesa dinero real.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,2215 @@
+{
+  "info": {
+    "_postman_id": "6f1c7a52-0d8e-4b8a-9f61-3c2a7d9e5b10",
+    "name": "PayLink - Pasarela de pagos simulada",
+    "description": "Mockup educativo de pasarela de pagos por débito a cuenta. Ejecutar completa y en orden con el Collection Runner sobre una instancia recién iniciada (mvnw spring-boot:run). Todos los datos son ficticios.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Setup",
+      "description": "Consulta de bancos y saldos iniciales (se guardan como línea base para las verificaciones).",
+      "item": [
+        {
+          "name": "Listar bancos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const banks = pm.response.json();",
+                  "pm.test(\"Tres bancos ficticios\", function () {",
+                  "    pm.expect(banks).to.have.lengthOf(3);",
+                  "    pm.expect(banks.map(b => b.code)).to.have.members([\"ANDINO\", \"CONDOR\", \"PACIFICO\"]);",
+                  "});",
+                  "pm.collectionVariables.set(\"bankCode\", \"ANDINO\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/banks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "banks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Saldo inicial pagador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Cuenta de pagador con saldo\", function () {",
+                  "    pm.expect(r.accountNumber).to.eql(pm.variables.get(\"payerAccount\"));",
+                  "    pm.expect(r.type).to.eql(\"PAYER\");",
+                  "    pm.expect(Number(r.balance)).to.be.above(150000);",
+                  "});",
+                  "pm.collectionVariables.set(\"payerBalanceBefore\", String(r.balance));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{payerAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{payerAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Saldo inicial comercio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Cuenta del comercio\", function () { pm.expect(r.type).to.eql(\"MERCHANT\"); });",
+                  "pm.collectionVariables.set(\"merchantBalanceBefore\", String(r.balance));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{merchantAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{merchantAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Saldo inicial pagador con saldo bajo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Saldo menor que el pago de prueba (50.000)\", function () { pm.expect(Number(r.balance)).to.be.below(50000); });",
+                  "pm.collectionVariables.set(\"lowBalanceBefore\", String(r.balance));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{lowBalanceAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{lowBalanceAccount}}",
+                "balance"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Pago aprobado (camino feliz)",
+      "description": "crear → iniciar → autenticar → autorizar (approve=true) → consultar → verificar saldos y movimientos.",
+      "item": [
+        {
+          "name": "Crear orden (150.000)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Orden en estado CREATED con referencia y checkoutUrl\", function () {",
+                  "    pm.expect(r.status).to.eql(\"CREATED\");",
+                  "    pm.expect(r.transactionId).to.be.a(\"string\");",
+                  "    pm.expect(r.reference).to.match(/^PL-\\d{8}-[A-Z0-9]{6}$/);",
+                  "    pm.expect(r.checkoutUrl).to.include(\"/checkout/\" + r.transactionId);",
+                  "    pm.expect(Number(r.amount)).to.eql(150000);",
+                  "});",
+                  "pm.collectionVariables.set(\"transactionId\", r.transactionId);",
+                  "pm.collectionVariables.set(\"reference\", r.reference);",
+                  "pm.collectionVariables.set(\"paymentAmount\", String(r.amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 150000,\n  \"description\": \"Compra aprobada - camino feliz\",\n  \"returnUrl\": \"https://tienda-demo.example/retorno\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Iniciar pago (banco + documento)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Transacción en PENDING con URL del banco\", function () {",
+                  "    pm.expect(r.status).to.eql(\"PENDING\");",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "    pm.expect(r.bankRedirectUrl).to.include(\"/bank/\" + pm.variables.get(\"bankCode\") + \"/login?tx=\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"{{bankCode}}\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"{{payerDocument}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco: autenticar pagador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Entrega bankSessionToken\", function () {",
+                  "    pm.expect(r.bankSessionToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"bankSessionToken\", r.bankSessionToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authenticate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authenticate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"{{payerDocument}}\",\n  \"password\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco: aprobar débito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Estado final APPROVED\", function () {",
+                  "    pm.expect(r.status).to.eql(\"APPROVED\");",
+                  "    pm.expect(r.statusReason).to.eql(null);",
+                  "    pm.expect(r.resultUrl).to.include(\"/result/\" + pm.variables.get(\"transactionId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authorize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"bankSessionToken\": \"{{bankSessionToken}}\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar estado por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Estado APPROVED\", function () {",
+                  "    pm.expect(r.status).to.eql(\"APPROVED\");",
+                  "    pm.expect(r.statusReason).to.eql(null);",
+                  "    pm.expect(r.reference).to.eql(pm.variables.get(\"reference\"));",
+                  "    pm.expect(r.merchantName).to.eql(\"Tienda Demo S.A.S.\");",
+                  "});",
+                  "pm.collectionVariables.set(\"approvedTransactionId\", pm.response.json().transactionId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar estado por referencia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Misma transacción y aprobada\", function () {",
+                  "    const r = pm.response.json();",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "    pm.expect(r.status).to.eql(\"APPROVED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/reference/{{reference}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "reference",
+                "{{reference}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar saldo pagador (debitado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "const r = pm.response.json();",
+                  "const expected = Number(pm.variables.get(\"payerBalanceBefore\")) - Number(pm.variables.get(\"paymentAmount\"));",
+                  "pm.test(\"Saldo = inicial - valor del pago\", function () { pm.expect(money(r.balance)).to.eql(money(expected)); });",
+                  "pm.collectionVariables.set(\"payerBalanceBefore\", String(r.balance));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{payerAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{payerAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar saldo comercio (acreditado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "const r = pm.response.json();",
+                  "const expected = Number(pm.variables.get(\"merchantBalanceBefore\")) + Number(pm.variables.get(\"paymentAmount\"));",
+                  "pm.test(\"Saldo = inicial + valor del pago\", function () { pm.expect(money(r.balance)).to.eql(money(expected)); });",
+                  "pm.collectionVariables.set(\"merchantBalanceBefore\", String(r.balance));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{merchantAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{merchantAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Movimientos pagador (débito)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "const m = pm.response.json();",
+                  "pm.test(\"Un DEBIT por el valor del pago\", function () {",
+                  "    pm.expect(m).to.have.lengthOf(1);",
+                  "    pm.expect(m[0].type).to.eql(\"DEBIT\");",
+                  "    pm.expect(money(m[0].amount)).to.eql(money(pm.variables.get(\"paymentAmount\")));",
+                  "    pm.expect(m[0].reference).to.eql(pm.variables.get(\"reference\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{payerAccount}}/movements?transactionId={{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{payerAccount}}",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{transactionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Movimientos comercio (crédito)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "const m = pm.response.json();",
+                  "pm.test(\"Un CREDIT por el valor del pago\", function () {",
+                  "    pm.expect(m).to.have.lengthOf(1);",
+                  "    pm.expect(m[0].type).to.eql(\"CREDIT\");",
+                  "    pm.expect(money(m[0].amount)).to.eql(money(pm.variables.get(\"paymentAmount\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{merchantAccount}}/movements?transactionId={{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{merchantAccount}}",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{transactionId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reintentar autorización (idempotencia → 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(409);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authorize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"bankSessionToken\": \"{{bankSessionToken}}\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pantalla de resultado (HTML)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Comprobante muestra APPROVED y la referencia\", function () {",
+                  "    pm.expect(pm.response.text()).to.include(\"APPROVED\");",
+                  "    pm.expect(pm.response.text()).to.include(pm.variables.get(\"reference\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/result/{{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "result",
+                "{{transactionId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Pago rechazado por el usuario",
+      "item": [
+        {
+          "name": "Crear orden (80.000)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Orden en estado CREATED con referencia y checkoutUrl\", function () {",
+                  "    pm.expect(r.status).to.eql(\"CREATED\");",
+                  "    pm.expect(r.transactionId).to.be.a(\"string\");",
+                  "    pm.expect(r.reference).to.match(/^PL-\\d{8}-[A-Z0-9]{6}$/);",
+                  "    pm.expect(r.checkoutUrl).to.include(\"/checkout/\" + r.transactionId);",
+                  "    pm.expect(Number(r.amount)).to.eql(80000);",
+                  "});",
+                  "pm.collectionVariables.set(\"transactionId\", r.transactionId);",
+                  "pm.collectionVariables.set(\"reference\", r.reference);",
+                  "pm.collectionVariables.set(\"paymentAmount\", String(r.amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 80000,\n  \"description\": \"Compra rechazada por el usuario\",\n  \"returnUrl\": \"https://tienda-demo.example/retorno\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Iniciar pago (banco + documento)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Transacción en PENDING con URL del banco\", function () {",
+                  "    pm.expect(r.status).to.eql(\"PENDING\");",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "    pm.expect(r.bankRedirectUrl).to.include(\"/bank/\" + pm.variables.get(\"bankCode\") + \"/login?tx=\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"{{bankCode}}\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"{{payerDocument}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco: autenticar pagador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Entrega bankSessionToken\", function () {",
+                  "    pm.expect(r.bankSessionToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"bankSessionToken\", r.bankSessionToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authenticate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authenticate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"{{payerDocument}}\",\n  \"password\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco: rechazar débito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Estado final REJECTED / USER_CANCELLED\", function () {",
+                  "    pm.expect(r.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(r.statusReason).to.eql(\"USER_CANCELLED\");",
+                  "    pm.expect(r.resultUrl).to.include(\"/result/\" + pm.variables.get(\"transactionId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authorize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"bankSessionToken\": \"{{bankSessionToken}}\",\n  \"approve\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar estado por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Estado REJECTED\", function () {",
+                  "    pm.expect(r.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(r.statusReason).to.eql(\"USER_CANCELLED\");",
+                  "    pm.expect(r.reference).to.eql(pm.variables.get(\"reference\"));",
+                  "    pm.expect(r.merchantName).to.eql(\"Tienda Demo S.A.S.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar saldo pagador sin cambios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "pm.test(\"Saldo sin cambios\", function () {",
+                  "    pm.expect(money(pm.response.json().balance)).to.eql(money(pm.variables.get(\"payerBalanceBefore\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{payerAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{payerAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar saldo comercio sin cambios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "pm.test(\"Saldo sin cambios\", function () {",
+                  "    pm.expect(money(pm.response.json().balance)).to.eql(money(pm.variables.get(\"merchantBalanceBefore\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{merchantAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{merchantAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sin movimientos para la transacción",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Lista vacía\", function () { pm.expect(pm.response.json()).to.have.lengthOf(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{payerAccount}}/movements?transactionId={{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{payerAccount}}",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{transactionId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Fondos insuficientes",
+      "item": [
+        {
+          "name": "Crear orden (50.000)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Orden en estado CREATED con referencia y checkoutUrl\", function () {",
+                  "    pm.expect(r.status).to.eql(\"CREATED\");",
+                  "    pm.expect(r.transactionId).to.be.a(\"string\");",
+                  "    pm.expect(r.reference).to.match(/^PL-\\d{8}-[A-Z0-9]{6}$/);",
+                  "    pm.expect(r.checkoutUrl).to.include(\"/checkout/\" + r.transactionId);",
+                  "    pm.expect(Number(r.amount)).to.eql(50000);",
+                  "});",
+                  "pm.collectionVariables.set(\"transactionId\", r.transactionId);",
+                  "pm.collectionVariables.set(\"reference\", r.reference);",
+                  "pm.collectionVariables.set(\"paymentAmount\", String(r.amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"description\": \"Compra con fondos insuficientes\",\n  \"returnUrl\": \"https://tienda-demo.example/retorno\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Iniciar pago (banco + documento)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Transacción en PENDING con URL del banco\", function () {",
+                  "    pm.expect(r.status).to.eql(\"PENDING\");",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "    pm.expect(r.bankRedirectUrl).to.include(\"/bank/\" + pm.variables.get(\"bankCode\") + \"/login?tx=\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"{{bankCode}}\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"{{lowBalanceDocument}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco: autenticar pagador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Entrega bankSessionToken\", function () {",
+                  "    pm.expect(r.bankSessionToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(r.transactionId).to.eql(pm.variables.get(\"transactionId\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"bankSessionToken\", r.bankSessionToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authenticate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authenticate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"{{lowBalanceDocument}}\",\n  \"password\": \"1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco: aprobar débito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Estado final REJECTED / INSUFFICIENT_FUNDS\", function () {",
+                  "    pm.expect(r.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(r.statusReason).to.eql(\"INSUFFICIENT_FUNDS\");",
+                  "    pm.expect(r.resultUrl).to.include(\"/result/\" + pm.variables.get(\"transactionId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/{{bankCode}}/authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "{{bankCode}}",
+                "authorize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"bankSessionToken\": \"{{bankSessionToken}}\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar estado por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Estado REJECTED\", function () {",
+                  "    pm.expect(r.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(r.statusReason).to.eql(\"INSUFFICIENT_FUNDS\");",
+                  "    pm.expect(r.reference).to.eql(pm.variables.get(\"reference\"));",
+                  "    pm.expect(r.merchantName).to.eql(\"Tienda Demo S.A.S.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar saldo pagador sin cambios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "pm.test(\"Saldo sin cambios\", function () {",
+                  "    pm.expect(money(pm.response.json().balance)).to.eql(money(pm.variables.get(\"lowBalanceBefore\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{lowBalanceAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{lowBalanceAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verificar saldo comercio sin cambios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "const money = (v) => Number(v).toFixed(2);",
+                  "pm.test(\"Saldo sin cambios\", function () {",
+                  "    pm.expect(money(pm.response.json().balance)).to.eql(money(pm.variables.get(\"merchantBalanceBefore\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{merchantAccount}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{merchantAccount}}",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sin movimientos para la transacción",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Lista vacía\", function () { pm.expect(pm.response.json()).to.have.lengthOf(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/{{lowBalanceAccount}}/movements?transactionId={{transactionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{lowBalanceAccount}}",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{transactionId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Errores de validación",
+      "item": [
+        {
+          "name": "Monto negativo → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(400);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});",
+                  "pm.test(\"Mensaje indica el campo amount\", function () { pm.expect(pm.response.json().message).to.include(\"amount\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": -100,\n  \"description\": \"Monto inválido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Monto con 3 decimales → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(400);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100.123,\n  \"description\": \"Demasiados decimales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "API key inválida → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(401);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "api-key-que-no-existe"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"description\": \"API key inválida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Sin API key → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(401);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"description\": \"Sin API key\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear orden para pruebas de error",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201\", function () { pm.response.to.have.status(201); });",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Orden en estado CREATED con referencia y checkoutUrl\", function () {",
+                  "    pm.expect(r.status).to.eql(\"CREATED\");",
+                  "    pm.expect(r.transactionId).to.be.a(\"string\");",
+                  "    pm.expect(r.reference).to.match(/^PL-\\d{8}-[A-Z0-9]{6}$/);",
+                  "    pm.expect(r.checkoutUrl).to.include(\"/checkout/\" + r.transactionId);",
+                  "    pm.expect(Number(r.amount)).to.eql(1000);",
+                  "});",
+                  "pm.collectionVariables.set(\"transactionId\", r.transactionId);",
+                  "pm.collectionVariables.set(\"reference\", r.reference);",
+                  "pm.collectionVariables.set(\"paymentAmount\", String(r.amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"description\": \"Orden para pruebas de error\",\n  \"returnUrl\": \"https://tienda-demo.example/retorno\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Banco inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(404);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});",
+                  "pm.test(\"Mensaje menciona el banco\", function () { pm.expect(pm.response.json().message).to.include(\"BANCO_INEXISTENTE\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"BANCO_INEXISTENTE\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"1000000001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Documento inexistente en el banco → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(404);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});",
+                  "pm.test(\"Mensaje menciona el documento\", function () { pm.expect(pm.response.json().message).to.include(\"9999999999\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"ANDINO\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"9999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Autorizar orden no iniciada (CREATED) → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(409);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/ANDINO/authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "ANDINO",
+                "authorize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"bankSessionToken\": \"token-falso\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Iniciar pago ya aprobado → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(409);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});",
+                  "pm.test(\"Mensaje indica estado APPROVED\", function () { pm.expect(pm.response.json().message).to.include(\"APPROVED\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{approvedTransactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{approvedTransactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"ANDINO\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"1000000001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Iniciar orden de error correctamente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{transactionId}}/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{transactionId}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankCode\": \"ANDINO\",\n  \"personType\": \"NATURAL\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"1000000001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Clave bancaria incorrecta → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(401);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/ANDINO/authenticate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "ANDINO",
+                "authenticate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"documentType\": \"CC\",\n  \"documentNumber\": \"1000000001\",\n  \"password\": \"0000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Token de sesión bancaria inválido → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(401);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bank/ANDINO/authorize",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bank",
+                "ANDINO",
+                "authorize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"bankSessionToken\": \"token-falso\",\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Transacción inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(404);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Identificador con formato inválido → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(400);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/no-es-un-uuid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "no-es-un-uuid"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cuenta inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error con formato uniforme\", function () {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e).to.have.all.keys(\"timestamp\", \"status\", \"error\", \"message\", \"path\");",
+                  "    pm.expect(e.status).to.eql(404);",
+                  "    pm.expect(e.path).to.include(\"/api/v1/\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/0000000000/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "0000000000",
+                "balance"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "apiKey",
+      "value": "demo-api-key-123"
+    },
+    {
+      "key": "transactionId",
+      "value": ""
+    },
+    {
+      "key": "reference",
+      "value": ""
+    },
+    {
+      "key": "bankCode",
+      "value": "ANDINO"
+    },
+    {
+      "key": "bankSessionToken",
+      "value": ""
+    },
+    {
+      "key": "payerAccount",
+      "value": "1000000001"
+    },
+    {
+      "key": "merchantAccount",
+      "value": "9000000001"
+    },
+    {
+      "key": "payerDocument",
+      "value": "1000000001"
+    },
+    {
+      "key": "lowBalanceAccount",
+      "value": "1000000002"
+    },
+    {
+      "key": "lowBalanceDocument",
+      "value": "1000000002"
+    },
+    {
+      "key": "approvedTransactionId",
+      "value": ""
+    },
+    {
+      "key": "paymentAmount",
+      "value": ""
+    },
+    {
+      "key": "payerBalanceBefore",
+      "value": ""
+    },
+    {
+      "key": "merchantBalanceBefore",
+      "value": ""
+    },
+    {
+      "key": "lowBalanceBefore",
+      "value": ""
+    }
+  ]
+}

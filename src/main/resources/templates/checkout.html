@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{fragments :: head('Checkout')}"></head>
+<body>
+<header th:replace="~{fragments :: topbar}"></header>
+<ol th:replace="~{fragments :: steps(${step})}"></ol>
+
+<div class="card">
+    <h1>Resumen del pago</h1>
+    <table class="summary">
+        <tr><th>Comercio</th><td th:text="${tx.merchant.name}">Tienda Demo S.A.S.</td></tr>
+        <tr><th>Referencia</th><td th:text="${tx.reference}">PL-...</td></tr>
+        <tr><th>Descripción</th><td th:text="${tx.description}">-</td></tr>
+        <tr><th>Valor</th><td class="amount" th:text="'$ ' + ${#numbers.formatDecimal(tx.amount, 1, 'POINT', 2, 'COMMA')}">$ 0,00</td></tr>
+    </table>
+
+    <div class="alert alert-error" th:if="${error}" th:text="${error}">Error</div>
+
+    <form method="post" th:action="@{/checkout/{id}(id=${tx.id})}">
+        <label for="bankCode">Banco</label>
+        <select id="bankCode" name="bankCode" required>
+            <option value="">Seleccione su banco…</option>
+            <option th:each="b : ${banks}" th:value="${b.code}" th:text="${b.name}"
+                    th:selected="${b.code == selectedBank}">Banco</option>
+        </select>
+
+        <label>Tipo de persona</label>
+        <div class="radios">
+            <label th:each="p, it : ${personTypes}">
+                <input type="radio" name="personType" th:value="${p}" th:checked="${it.first}" required>
+                <span th:text="${p.name() == 'NATURAL'} ? 'Natural' : 'Jurídica'">Natural</span>
+            </label>
+        </div>
+
+        <label for="documentType">Tipo de documento</label>
+        <select id="documentType" name="documentType" required>
+            <option th:each="d : ${documentTypes}" th:value="${d}" th:text="${d}">CC</option>
+        </select>
+
+        <label for="documentNumber">Número de documento</label>
+        <input id="documentNumber" name="documentNumber" type="text" maxlength="20" required
+               th:value="${documentNumber}">
+
+        <button class="btn btn-primary" type="submit">Ir a mi banco</button>
+    </form>
+</div>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+</body>
+</html>

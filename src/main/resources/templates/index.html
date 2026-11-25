@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{fragments :: head('Tienda Demo')}"></head>
+<body>
+<header th:replace="~{fragments :: topbar}"></header>
+
+<div class="card">
+    <h1 th:text="${merchantName}">Tienda Demo S.A.S.</h1>
+    <p class="hint">Simula el sitio del comercio: crea una orden de pago y serás redirigido al checkout de PayLink.
+        (Equivale a <code>POST /api/v1/payments</code> con la API key del comercio demo).</p>
+
+    <div class="alert alert-error" th:if="${error}" th:text="${error}">Error</div>
+
+    <form method="post" th:action="@{/demo/orders}">
+        <label for="amount">Valor a pagar (COP)</label>
+        <input id="amount" name="amount" type="number" step="0.01" min="0.01" value="150000.00" required>
+
+        <label for="description">Descripción</label>
+        <input id="description" name="description" type="text" maxlength="255" value="Compra de prueba en Tienda Demo" required>
+
+        <button class="btn btn-primary" type="submit">Pagar con PayLink</button>
+    </form>
+</div>
+
+<footer th:replace="~{fragments :: footer}"></footer>
+</body>
+</html>
