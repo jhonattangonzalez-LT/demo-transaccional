@@ -18,6 +18,35 @@ Todos los datos son ficticios.
 
 Si alguna herramienta no está en el `PATH`, el script la busca en `~/.local/bin`. Si no aparece, lo indica.
 
+## Descargar el proyecto
+
+```bash
+git clone https://github.com/KevinLopezB/paylink-qa-agentes.git
+cd paylink-qa-agentes
+chmod +x demo/ejecutar_demo.sh
+```
+
+## Instalar las herramientas
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install -y openjdk-21-jdk maven python3 git
+# k6: https://k6.io/docs/get-started/installation/ (paquete oficial para Linux)
+# Google Chrome: https://www.google.com/chrome/ (paquete .deb oficial)
+```
+
+**macOS:** con Homebrew:
+```bash
+brew install openjdk@21 maven k6 python git
+brew install --cask google-chrome
+```
+
+**Windows:** instala Git para Windows, que trae Git Bash, y ejecuta los comandos desde Git Bash o WSL.
+Instala JDK 21 (Eclipse Temurin), Maven, k6, Python 3 y Google Chrome con sus instaladores oficiales.
+
+Verifica cada herramienta con los comandos de la sección de requisitos. Java debe ser la versión 21 y tener `javac`.
+
 ## Correr la demo
 
 ```bash
