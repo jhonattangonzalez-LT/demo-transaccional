@@ -1,0 +1,280 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Pruebas de calidad con agentes · Demo PayLink</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#1d2330;--muted:#5b6474;--line:#e3e8f0;--brand:#0b3d6e;--ok:#117a3d;--warn:#8a4b00;--run:#1a6fd1;--soft:#eef3fa;color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.deck{max-width:980px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding-block:24px}
+.slide{display:none;flex:1;flex-direction:column;justify-content:center;gap:18px}
+.slide.on{display:flex}
+h1{font-size:36px;margin:0;color:var(--brand);text-wrap:balance}
+h2{font-size:26px;margin:0;color:var(--brand);text-wrap:balance}
+.tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand);background:var(--soft);padding:4px 10px;border-radius:999px;align-self:flex-start}
+p.lead{font-size:19px;color:var(--muted);margin:0;max-width:70ch}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.card b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:4px}
+.card strong{font-size:18px;color:var(--brand)}
+.big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok)} .warn{color:var(--warn)}
+ol,ul{margin:0;padding-left:22px} li{margin:6px 0}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:block;overflow-x:auto}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--soft);font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+svg{width:100%;height:auto;display:block}
+.ejecutar{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:14px 16px;display:grid;gap:10px}
+.ejecutar .fila{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ejecutar button.correr{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:10px 16px;font:600 15px system-ui,sans-serif;cursor:pointer}
+.ejecutar button.correr:disabled{opacity:.5;cursor:default}
+.ejecutar .est{font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.ejecutar .est.corriendo{background:#e5f0fc;color:var(--run)}
+.ejecutar .est.ok{background:#e7f5ec;color:var(--ok)}
+.ejecutar .est.fallo{background:#fde8e6;color:#b42318}
+.ejecutar pre{font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--soft);border-radius:8px;padding:10px 12px;margin:0;max-height:200px;overflow:auto;white-space:pre-wrap}
+.ejecutar a{color:var(--run);font-weight:600;font-size:14px}
+.ejecutar .aviso{font-size:13px;color:var(--muted);margin:0}
+nav{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;color:var(--muted);font-size:14px}
+nav button{font:600 14px system-ui,sans-serif;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+nav button:disabled{opacity:.4;cursor:default}
+nav button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0f1420;--card:#171e2e;--ink:#e8edf5;--muted:#9aa6b8;--line:#2a3448;--brand:#8cc0ff;--soft:#1f2a40;--ok:#5fd38f;--warn:#f0b35a;--run:#8cc0ff;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0f1420;--card:#171e2e;--ink:#e8edf5;--muted:#9aa6b8;--line:#2a3448;--brand:#8cc0ff;--soft:#1f2a40;--ok:#5fd38f;--warn:#f0b35a;--run:#8cc0ff;color-scheme:dark}
+</style>
+
+<main class="deck" aria-label="Presentación de la demo">
+
+<section class="slide on" data-t="Inicio">
+  <span class="tag">Demo · pruebas de calidad con agentes</span>
+  <h1>Pruebas de la pasarela de pagos PayLink, con agentes especializados</h1>
+  <p class="lead">Cuatro agentes prueban la misma operación desde distintos ángulos: rendimiento, API, interfaz y seguridad. Un coordinador los organiza y una persona revisa los resultados.</p>
+  <div class="grid">
+    <div class="card"><b>No funcional</b><strong>carga-api</strong><p class="lead" style="font-size:15px">Cuántas peticiones soporta la API y en cuánto tiempo responde.</p></div>
+    <div class="card"><b>API</b><strong>api-funcional</strong><p class="lead" style="font-size:15px">Cada paso del pago, validado con su respuesta.</p></div>
+    <div class="card"><b>Front</b><strong>front-serenity</strong><p class="lead" style="font-size:15px">La tienda y el checkout, recorridos en Chrome.</p></div>
+    <div class="card"><b>Seguridad</b><strong>seguridad-api</strong><p class="lead" style="font-size:15px">Revisión pasiva de la API y la tienda.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-t="Cómo trabajan">
+  <span class="tag">Cómo trabajan</span>
+  <h2>El coordinador reparte el trabajo y la persona decide</h2>
+  <svg viewBox="0 0 900 455" role="img" aria-label="Diagrama: persona, coordinador, cuatro agentes, aplicación y informes">
+    <defs>
+      <marker id="fl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#5b6474"/>
+      </marker>
+    </defs>
+    <!-- Persona -->
+    <rect x="20" y="170" width="150" height="90" rx="12" fill="#ffffff" stroke="#0b3d6e" stroke-width="2"/>
+    <text x="95" y="206" text-anchor="middle" font-size="17" font-weight="700" fill="#0b3d6e">Persona</text>
+    <text x="95" y="230" text-anchor="middle" font-size="13" fill="#5b6474">pide la prueba y decide</text>
+    <!-- Coordinador -->
+    <rect x="230" y="170" width="170" height="90" rx="12" fill="#0b3d6e"/>
+    <text x="315" y="206" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">Coordinador</text>
+    <text x="315" y="230" text-anchor="middle" font-size="13" fill="#cfe0f5">organiza y revisa</text>
+    <!-- Agentes -->
+    <g>
+      <rect x="470" y="20" width="200" height="80" rx="10" fill="#eef3fa" stroke="#1a6fd1" stroke-width="1.5"/>
+      <text x="570" y="50" text-anchor="middle" font-size="15" font-weight="700" fill="#0b3d6e">carga-api</text>
+      <text x="570" y="72" text-anchor="middle" font-size="12" fill="#5b6474">rendimiento · k6</text>
+    </g>
+    <g>
+      <rect x="470" y="125" width="200" height="80" rx="10" fill="#eef3fa" stroke="#1a6fd1" stroke-width="1.5"/>
+      <text x="570" y="155" text-anchor="middle" font-size="15" font-weight="700" fill="#0b3d6e">api-funcional</text>
+      <text x="570" y="177" text-anchor="middle" font-size="12" fill="#5b6474">API · k6</text>
+    </g>
+    <g>
+      <rect x="470" y="230" width="200" height="80" rx="10" fill="#eef3fa" stroke="#1a6fd1" stroke-width="1.5"/>
+      <text x="570" y="260" text-anchor="middle" font-size="15" font-weight="700" fill="#0b3d6e">front-serenity</text>
+      <text x="570" y="282" text-anchor="middle" font-size="12" fill="#5b6474">interfaz · Chrome</text>
+    </g>
+    <g>
+      <rect x="470" y="335" width="200" height="80" rx="10" fill="#eef3fa" stroke="#1a6fd1" stroke-width="1.5"/>
+      <text x="570" y="365" text-anchor="middle" font-size="15" font-weight="700" fill="#0b3d6e">seguridad-api</text>
+      <text x="570" y="387" text-anchor="middle" font-size="12" fill="#5b6474">seguridad · revisión pasiva</text>
+    </g>
+    <!-- Aplicación -->
+    <rect x="730" y="170" width="150" height="90" rx="12" fill="#ffffff" stroke="#117a3d" stroke-width="2"/>
+    <text x="805" y="206" text-anchor="middle" font-size="16" font-weight="700" fill="#117a3d">PayLink</text>
+    <text x="805" y="230" text-anchor="middle" font-size="13" fill="#5b6474">demo de pagos</text>
+    <!-- Flechas: persona -> coordinador -->
+    <line x1="170" y1="215" x2="228" y2="215" stroke="#5b6474" stroke-width="2" marker-end="url(#fl)"/>
+    <!-- coordinador -> agentes -->
+    <path d="M400 200 C 430 60, 440 60, 468 60" fill="none" stroke="#5b6474" stroke-width="2" marker-end="url(#fl)"/>
+    <path d="M400 215 C 430 170, 440 170, 468 165" fill="none" stroke="#5b6474" stroke-width="2" marker-end="url(#fl)"/>
+    <path d="M400 230 C 430 270, 440 270, 468 270" fill="none" stroke="#5b6474" stroke-width="2" marker-end="url(#fl)"/>
+    <path d="M400 245 C 430 370, 440 370, 468 375" fill="none" stroke="#5b6474" stroke-width="2" marker-end="url(#fl)"/>
+    <!-- agentes -> PayLink -->
+    <path d="M672 60 C 700 60, 700 170, 728 200" fill="none" stroke="#1a6fd1" stroke-width="2" marker-end="url(#fl)"/>
+    <path d="M672 165 L 728 200" fill="none" stroke="#1a6fd1" stroke-width="2" marker-end="url(#fl)"/>
+    <path d="M672 270 C 700 270, 700 225, 728 215" fill="none" stroke="#1a6fd1" stroke-width="2" marker-end="url(#fl)"/>
+    <path d="M672 375 C 700 375, 700 250, 728 235" fill="none" stroke="#1a6fd1" stroke-width="2" marker-end="url(#fl)"/>
+    <!-- resultados de vuelta -->
+    <text x="450" y="445" text-anchor="middle" font-size="13" fill="#5b6474">Cada agente devuelve su resultado al coordinador, que lo reúne en un informe para la persona.</text>
+  </svg>
+  <div class="grid">
+    <div class="card"><b>1 · Pedido</b>La persona indica qué probar: una API, una pantalla o un flujo completo.</div>
+    <div class="card"><b>2 · Reparto</b>El coordinador lanza el agente que corresponde, con su herramienta.</div>
+    <div class="card"><b>3 · Informe</b>Cada agente entrega sus resultados: qué pasó, con cifras y evidencias.</div>
+    <div class="card"><b>4 · Decisión</b>La persona revisa el informe y decide. Los agentes no aprueban por sí solos.</div>
+  </div>
+</section>
+
+<section class="slide" data-t="Flujo de pago">
+  <span class="tag">Caso 1 · Funcional de flujo (front)</span>
+  <h2>Un pago completo, recorrido en Chrome</h2>
+  <p class="lead">El agente abre la tienda, elige el banco, ingresa al banco, aprueba el débito y verifica el resultado. Cada paso aparece con su rótulo en pantalla.</p>
+  <div class="card">
+    <ol>
+      <li>Tienda: el comercio pone el valor y la descripción.</li>
+      <li>Checkout: el pagador elige su banco y su documento.</li>
+      <li>Banco: ingresa su clave.</li>
+      <li>Banco: aprueba el débito.</li>
+      <li>Resultado: la tienda muestra el estado del pago.</li>
+    </ol>
+  </div>
+  <p class="lead"><span class="ok"><b>3 de 3 escenarios pasan</b></span>: pago aprobado, pago rechazado y fondos insuficientes.</p>
+  <div class="ejecutar" data-caso="flujo">
+    <div class="fila"><button class="correr" type="button">Ejecutar este caso</button><span class="est">sin correr</span></div>
+    <pre class="salida">Pulsa el botón para verlo correr.</pre>
+    <a class="informe" href="#" hidden>Abrir informe</a>
+    <p class="aviso" hidden></p>
+  </div>
+</section>
+
+<section class="slide" data-t="Ingreso de datos">
+  <span class="tag">Caso 2 · Funcional de ingreso de datos (front)</span>
+  <h2>Lo que se escribe en los formularios</h2>
+  <table>
+    <tr><th>Caso</th><th>Qué se ingresa</th><th>Resultado esperado</th><th>Resultado</th></tr>
+    <tr><td>Valor vacío</td><td>Tienda sin valor</td><td>No avanza al checkout</td><td class="ok">Pasa</td></tr>
+    <tr><td>Documento vacío</td><td>Checkout sin documento</td><td>No se envía; el campo es obligatorio</td><td class="ok">Pasa</td></tr>
+    <tr><td>Documento en otro banco</td><td>CC 1000000001 en Banco Cóndor</td><td>Muestra que no existe la cuenta</td><td class="ok">Pasa</td></tr>
+    <tr><td>Clave incorrecta</td><td>Clave 0000 en el banco</td><td>«Credenciales bancarias inválidas»</td><td class="ok">Pasa</td></tr>
+    <tr><td>Persona jurídica</td><td>NIT 800000001 en Banco Pacífico</td><td>Llega al banco con ese documento</td><td class="ok">Pasa</td></tr>
+  </table>
+  <div class="ejecutar" data-caso="datos">
+    <div class="fila"><button class="correr" type="button">Ejecutar este caso</button><span class="est">sin correr</span></div>
+    <pre class="salida">Pulsa el botón para verlo correr.</pre>
+    <a class="informe" href="#" hidden>Abrir informe</a>
+    <p class="aviso" hidden></p>
+  </div>
+</section>
+
+<section class="slide" data-t="Rendimiento">
+  <span class="tag">Caso 3 · No funcional de carga (API, k6)</span>
+  <h2>Cómo responde la API con muchos pagos a la vez</h2>
+  <div class="grid">
+    <div class="card"><b>Validaciones de la API</b><span class="big ok">13 de 13</span><p class="lead" style="font-size:14px">Cada paso del pago responde como se espera. Tiempo P95 de 726 ms.</p></div>
+    <div class="card"><b>Carga · 10 usuarios, 3 min</b><span class="big ok">4.061</span><p class="lead" style="font-size:14px">Peticiones sin errores HTTP. Tiempo P95 de 591 ms.</p></div>
+    <div class="card"><b>Estrés · 50 usuarios</b><span class="big warn">1.229 pagos</span><p class="lead" style="font-size:14px">Sin fallas. El 5 % más lento tarda cerca de 1,5 segundos.</p></div>
+  </div>
+  <p class="lead">Con 50 usuarios a la vez, la API sigue respondiendo sin errores. El tiempo de respuesta crece y es el dato a discutir con el equipo de PayLink.</p>
+  <div class="ejecutar" data-caso="carga">
+    <div class="fila"><button class="correr" type="button">Ejecutar carga (3 min)</button><span class="est">sin correr</span></div>
+    <pre class="salida">Pulsa el botón para correr la carga. Se ve el avance en la terminal donde corre la demo.</pre>
+    <a class="informe" href="#" hidden>Abrir informe</a>
+    <p class="aviso" hidden></p>
+  </div>
+</section>
+
+<section class="slide" data-t="Seguridad">
+  <span class="tag">Caso 4 · Seguridad (API y tienda)</span>
+  <h2>Revisión pasiva de la API y la tienda</h2>
+  <p class="lead">Sin ataques ni carga: se revisan respuestas a peticiones con claves inválidas, mensajes de error y encabezados de seguridad.</p>
+  <div class="grid">
+    <div class="card"><b>Pasan</b><span class="big ok">7</span><p class="lead" style="font-size:14px">Rechazo sin clave, errores sin información interna, rutas de administración cerradas y clave fuera del HTML.</p></div>
+    <div class="card"><b>Mejora sugerida</b><span class="big warn">1</span><p class="lead" style="font-size:14px">Agregar encabezados de seguridad del navegador (contenido y protección contra iframes).</p></div>
+    <div class="card"><b>No medido</b><span class="big">1</span><p class="lead" style="font-size:14px">Acceso entre comercios: la demo tiene un solo comercio.</p></div>
+  </div>
+  <div class="ejecutar" data-caso="seguridad">
+    <div class="fila"><button class="correr" type="button">Ejecutar revisión</button><span class="est">sin correr</span></div>
+    <pre class="salida">Pulsa el botón para ver el resultado.</pre>
+    <a class="informe" href="#" hidden>Abrir informe</a>
+    <p class="aviso" hidden></p>
+  </div>
+</section>
+
+<section class="slide" data-t="Próximos pasos">
+  <span class="tag">Próximos pasos</span>
+  <h2>Lo que sigue</h2>
+  <div class="card"><ul>
+    <li>Acordar con el equipo de PayLink los tiempos de respuesta aceptables para cada volumen de usuarios.</li>
+    <li>Sumar la mejora de encabezados de seguridad a la demo.</li>
+    <li>Ampliar la cobertura a otros flujos de la pasarela.</li>
+    <li>Llevar los agentes a un ambiente propio, con las mismas revisiones y su informe.</li>
+  </ul></div>
+  <p class="lead">Todos los datos de esta demo son ficticios.</p>
+</section>
+
+<nav>
+  <button id="prev" type="button">← Anterior</button>
+  <span id="pos"></span>
+  <button id="next" type="button">Siguiente →</button>
+</nav>
+</main>
+
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var i=0, prev=document.getElementById('prev'), next=document.getElementById('next'), pos=document.getElementById('pos');
+  function ver(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach(function(s,k){s.classList.toggle('on',k===i);});
+    prev.disabled=i===0; next.disabled=i===slides.length-1;
+    pos.textContent=(i+1)+' / '+slides.length+' · '+slides[i].getAttribute('data-t');
+  }
+  prev.addEventListener('click',function(){ver(i-1);});
+  next.addEventListener('click',function(){ver(i+1);});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'){ver(i+1);}
+    if(e.key==='ArrowLeft'||e.key==='PageUp'){ver(i-1);}
+  });
+  ver(0);
+
+  // Ejecución de cada caso desde el servidor local (python3 demo/servidor.py).
+  var d=new Date(), hoy=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var enlaces={carga:'/informes/carga/'+hoy+'-paylink-carga.html', flujo:'/serenity/index.html', datos:'/serenity/index.html', seguridad:'/informes/seguridad/'+hoy+'-paylink.md'};
+  var etiquetas={carga:'carga',flujo:'Serenity',datos:'Serenity',seguridad:'seguridad'};
+  var local=location.protocol==='file:';
+  var bloques=[].slice.call(document.querySelectorAll('.ejecutar'));
+  function etiqueta(b,e){
+    var t=b.querySelector('.est'); var txt={sin_correr:'sin correr',corriendo:'corriendo…',ok:'terminó bien',fallo:'terminó con fallas'}[e]||e;
+    t.className='est '+e; t.textContent=txt;
+  }
+  function pintar(b,caso){
+    fetch('/api/estado/'+caso,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      etiqueta(b,d.estado);
+      var pre=b.querySelector('.salida');
+      pre.textContent=d.lineas.length?d.lineas.join('\n'):'Iniciando…';
+      var boton=b.querySelector('button.correr');
+      boton.disabled=(d.estado==='corriendo');
+      var a=b.querySelector('.informe');
+      if(d.estado!=='corriendo' && d.estado!=='sin_correr'){
+        a.hidden=false; a.href=enlaces[caso]; a.target='_blank'; a.textContent='Abrir informe de '+etiquetas[caso];
+      }
+      if(d.estado==='corriendo') setTimeout(function(){pintar(b,caso);},1000);
+    }).catch(function(){});
+  }
+  bloques.forEach(function(b){
+    var caso=b.getAttribute('data-caso'), boton=b.querySelector('button.correr'), aviso=b.querySelector('.aviso');
+    if(local){
+      boton.disabled=true; aviso.hidden=false;
+      aviso.textContent='Para ejecutar los casos, abre esta presentación desde el servidor local (http://127.0.0.1:8791).';
+      return;
+    }
+    boton.addEventListener('click',function(){
+      boton.disabled=true;
+      fetch('/api/ejecutar/'+caso,{method:'POST'}).then(function(r){return r.json();}).then(function(r){
+        if(!r.ok) alert(r.mensaje);
+        pintar(b,caso);
+      });
+    });
+    pintar(b,caso);
+  });
+})();
+</script>

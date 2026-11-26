@@ -1,0 +1,13 @@
+# Generados por las pruebas y la demo (no se versionan)
+serenity-tienda/target/
+demo/estado/
+informes/carga/*.json
+informes/carga/*.html
+informes/seguridad/*.md
+informes/video/
+# Local
+.claude/settings.local.json
+*.bak*
+presentacion/
+__pycache__/
+informes/resumen*.html
