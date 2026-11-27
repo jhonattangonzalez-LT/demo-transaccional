@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class TiendaSteps {
 
-    static final String BASE = "https://demo-transaccional.vercel.app";
+    /** URL de la tienda; se cambia con -Dpaylink.url=https://otra-url (por defecto, la demo de Vercel). */
+    static final String BASE = System.getProperty("paylink.url", "https://demo-transaccional.vercel.app").replaceAll("/$", "");
     static final String API_KEY = "demo-api-key-123";
 
     private WebDriver driver;

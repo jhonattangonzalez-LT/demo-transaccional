@@ -11,3 +11,7 @@ informes/video/
 presentacion/
 __pycache__/
 informes/resumen*.html
+
+# Coordinador (LangGraph)
+.venv/
+informes/ejecuciones/

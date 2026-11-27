@@ -200,4 +200,23 @@ src/main/java/com/quind/paylink
 docs/
  ├─ DATOS_DE_PRUEBA.md   cuentas, credenciales, escenarios y casos de error
  └─ openapi.json|yaml    especificación OpenAPI exportada
+qa-agentes/              QA con agentes de IA (ver abajo)
 ```
+
+## QA con agentes (`qa-agentes/`)
+
+Pruebas automáticas de PayLink coordinadas por agentes: API (6 validaciones), tienda en Chrome (Serenity),
+rendimiento (k6, 5 usuarios) y seguridad básica pasiva (5 revisiones), con un panel en vivo en
+`http://127.0.0.1:8792`. Base creada por Kevin López (historial conservado); el coordinador LangGraph,
+el panel y el comando `/qa` se agregaron después.
+
+```bash
+cd qa-agentes
+qa.cmd                                   # Windows: todo contra la demo de Vercel
+./qa.sh --url http://localhost:8080      # Linux/macOS: contra la app local (seguridad se omite)
+```
+
+Para usar `/qa` desde Claude Code, abre Claude Code **dentro de `qa-agentes/`** (ahí están sus agentes y
+comandos). Instalación de herramientas y detalles: [`qa-agentes/README.md`](qa-agentes/README.md).
+
+> La revisión de seguridad solo corre contra URLs autorizadas (hoy, la demo de Quind en Vercel).

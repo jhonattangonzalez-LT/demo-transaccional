@@ -6,6 +6,12 @@
   "api_key": "demo-api-key-123",
   "umbral_p95_ms": 1000,
   "reset_al_inicio": true,
+  "autorizacion_seguridad": {
+    "otorgada": true,
+    "por": "Quind (dueño de la demo)",
+    "fecha": "2026-11-25",
+    "alcance": "solo revisión pasiva de https://demo-transaccional.vercel.app"
+  },
   "pagador": {
     "banco": "ANDINO",
     "tipo_persona": "NATURAL",

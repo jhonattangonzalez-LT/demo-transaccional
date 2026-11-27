@@ -9,8 +9,18 @@ apis/paylink/config.json     datos de la API (URL, clave demo, pagador, montos, 
 docs/                        swagger de PayLink y DATOS_DE_PRUEBA.md (fuentes)
 k6/paylink.js                pruebas de carga y funcionales con k6 (genera el informe visual)
 informes/carga/              informes HTML y JSON de cada corrida
-.claude/agents/              agentes (carga-api, api-funcional)
+informes/ejecuciones/        consolidado y eventos de cada corrida del coordinador (no se versiona)
+orquestador/                 coordinador LangGraph (qa.py, grafo.py, ejecutores.py) y panel en vivo (panel.py/.html)
+qa.cmd / qa.sh               lanzadores del coordinador (crean .venv con LangGraph la primera vez)
+.claude/agents/              agentes: coordinador-qa, api-funcional, carga-api, front-serenity, seguridad-api
+.claude/commands/qa.md       comando /qa → delega en coordinador-qa
 ```
+
+## Coordinador
+- `qa.cmd` (Windows) o `./qa.sh`: corre api, front, carga y seguridad con el panel en http://127.0.0.1:8792.
+- Opciones: `--tipos api,front,carga,seguridad`, `--carga corta|carga|estres`, `--url <url con la API de PayLink>`, `--sin-ventana`, `--sin-panel`, `--salir-al-terminar`.
+- Pruebas: API (6 validaciones), tienda (1 compra en Chrome), rendimiento (k6) y seguridad (5 revisiones pasivas).
+- Seguridad solo corre con `autorizacion_seguridad.otorgada: true` en `apis/paylink/config.json`, registrada por el dueño de la demo, y solo contra la `base_url` de ese archivo.
 
 ## Cómo correr las pruebas
 

@@ -5,6 +5,33 @@ un caso por tipo de prueba, con Chrome visible en los casos de formulario.
 
 Todos los datos son ficticios.
 
+## Cómo ejecutarlo (lo más fácil)
+
+1. **Doble clic en `qa.cmd`** (en Windows). En Linux o macOS: `./qa.sh`.
+2. Se abre el panel de Quind en el navegador (`http://127.0.0.1:8792`) y las 4 pruebas corren solas, paso a paso.
+3. Al final, el panel muestra el resultado de cada prueba y los enlaces a los informes.
+
+Para volver a correr, usa el botón **Ejecutar** del panel. Ahí también puedes elegir qué pruebas correr y la URL.
+
+| # | Prueba | Qué valida | Cuándo pasa |
+|---|---|---|---|
+| 1 | API: pago completo | 6 validaciones: crear la orden, iniciar el pago, iniciar sesión en el banco, aprobar, saldos y rechazo | Las 6 pasan |
+| 2 | Tienda en el navegador | Una compra en Chrome: tienda → pago → banco → resultado | La compra termina aprobada |
+| 3 | Rendimiento | 5 usuarios pagando a la vez durante 45 s | El 95 % responde en menos de 1 s y casi sin errores |
+| 4 | Seguridad básica | 5 revisiones sin ataques: claves, errores, rutas de administración, encabezados, clave en la página | Cada revisión sin hallazgos |
+
+### ¿Sirve para cualquier URL?
+
+Sirve para **cualquier URL que tenga la API de PayLink** (los mismos endpoints de `docs/openapi_demo_transaccional.json`
+y los datos de prueba de `docs/DATOS_DE_PRUEBA.md`): por ejemplo, la demo local (`http://localhost:8080`), otro
+despliegue o un ambiente de QA. No sirve para una página web cualquiera: si la URL no tiene la API, el paso
+«Preparar» lo dice y no corre nada más.
+
+- En el panel: escribe la URL en el campo **URL** y pulsa **Ejecutar**.
+- En consola: `qa.cmd --url http://localhost:8080`.
+- **Seguridad** solo corre contra la URL autorizada en `apis/paylink/config.json`. Con otra URL se omite: hace falta
+  la autorización escrita de su dueño.
+
 ## Requisitos
 
 | Herramienta | Para qué | Cómo comprobarla |
@@ -60,6 +87,63 @@ Corre, en orden:
 4. **Seguridad**: revisión pasiva de la API y la tienda (sin ataques ni carga).
 
 Al final abre en Chrome los informes de carga y de Serenity. Los informes de seguridad quedan en `informes/seguridad/`.
+
+## Coordinador con LangGraph y panel en vivo
+
+El coordinador corre las pruebas como un grafo (LangGraph) y muestra cada paso en vivo en un panel web local
+(`http://127.0.0.1:8792`) y en la consola. Funciona en Windows, Linux y macOS.
+
+```
+                 ┌─> api (k6 smoke) ─> front (Serenity, Chrome) ─> carga (k6) ─┐
+START ─> calentar┤                                                             ├─> consolidar ─> END
+                 └─> seguridad (pasiva, en paralelo) ──────────────────────────┘
+```
+
+- `calentar` despierta la demo de Vercel antes de medir (evita P95 falsos por arranque en frío).
+- `api`, `front` y `carga` reinician los datos de la demo, por eso van en secuencia; `seguridad` no cambia datos y va en paralelo.
+- `consolidar` escribe `informes/ejecuciones/<fecha-hora>/consolidado.md` (y `.json`, más `eventos.jsonl` con cada paso).
+
+**Requisitos adicionales:** Python 3.10+ (el primer uso crea `.venv` e instala LangGraph solo).
+
+```bash
+qa.cmd                                 # Windows: las 4 pruebas, panel en vivo y Chrome visible
+./qa.sh                                # Linux / macOS / Git Bash
+qa.cmd --tipos api,carga               # solo algunas: api, front, carga, seguridad
+qa.cmd --carga carga                   # perfil de carga: corta (5 usuarios ~45 s, defecto) | carga | estres
+qa.cmd --url http://localhost:8080     # otra URL con la API de PayLink (seguridad se omite)
+qa.cmd --sin-panel --sin-ventana       # solo consola y Chrome sin ventana (CI); código de salida 0/1
+qa.cmd panel                           # solo el panel, con botones para lanzar
+qa.cmd grafo                           # imprime el grafo en Mermaid
+```
+
+Qué se ve en el panel, una prueba por tipo:
+
+| Tipo | En vivo |
+|---|---|
+| API funcional | Cada validación del flujo (crear → iniciar → autenticar → autorizar → saldos → rechazo) con PASA/FALLA |
+| Front | Cada paso de Serenity (tienda → checkout → banco → resultado) mientras Chrome lo ejecuta en pantalla; enlace al informe con capturas |
+| Carga | Usuarios activos, peticiones/s, P95 y errores cada segundo, con gráfica y línea de umbral |
+| Seguridad | Cada revisión (SEG-01…SEG-05) con PASA / HALLAZGO |
+
+**Seguridad requiere autorización registrada.** El nodo solo corre si `apis/paylink/config.json` tiene:
+
+```json
+"autorizacion_seguridad": { "otorgada": true, "por": "<dueño de la demo>", "fecha": "AAAA-MM-DD", "alcance": "solo revisión pasiva de <URL>" }
+```
+
+Sin eso, el panel la muestra como «omitida». Ese registro lo hace el dueño de la demo, no el coordinador.
+
+### Desde Claude Code (agente coordinador)
+
+- En una sesión de Claude Code dentro del repo: `/qa todo`, `/qa solo api y carga`, `/qa estrés`…
+  o pídelo en lenguaje natural («usa el coordinador-qa para correr la prueba de front»).
+- Desde consola, sin abrir la sesión interactiva:
+  ```bash
+  claude -p "/qa api y carga" --allowedTools "Bash(qa.cmd:*)" "Bash(./qa.sh:*)" "Read"
+  ```
+
+El agente `coordinador-qa` traduce el pedido a opciones de `qa.py`, lanza el grafo (con el panel en vivo) y resume
+el informe consolidado. Los otros cuatro agentes siguen disponibles para trabajo puntual de cada tipo.
 
 ## Presentación con botones
 

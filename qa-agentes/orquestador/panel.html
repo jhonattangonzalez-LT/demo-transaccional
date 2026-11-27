@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quind · QA en vivo</title>
+<style>
+  :root {
+    /* Colores de Quind: azul petróleo, amarillo, cian y naranja del logo */
+    --quind: #003242; --amarillo: #fcb601; --cian: #0dc1e7; --naranja: #fb542a;
+    --bg: #f4f7f8; --card: #fff; --ink: #0f2a35; --muted: #5e7480; --line: #dfe7ea;
+    --brand: var(--quind); --ok: #127a3e; --ko: #c4321a; --warn: #b36b00; --info: #46707f; --run: #088ba9;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { background: #fff; color: var(--quind); padding: 12px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    border-bottom: 4px solid var(--amarillo); }
+  header img { height: 42px; }
+  header h1 { margin: 0; font-size: 20px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .estado-global { margin-left: auto; padding: 6px 14px; border-radius: 999px; background: var(--quind); color: #fff; font-weight: 600; }
+  main { padding: 16px 24px 32px; max-width: 1500px; margin: 0 auto; }
+  .controles { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px;
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .controles label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .controles select, .controles input[type=url] { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+  .controles input[type=url] { width: 300px; max-width: 100%; }
+  button { background: var(--amarillo); color: var(--quind); border: 0; border-radius: 8px; padding: 8px 18px; font-weight: 600; cursor: pointer; }
+  button:disabled { background: #9aa7b8; cursor: default; }
+  .grafo { display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; margin: 16px 0; }
+  .carriles { display: grid; gap: 10px; }
+  .carril { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .flecha { color: var(--muted); }
+  .nodo { border: 2px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; font-weight: 600;
+    display: inline-flex; gap: 8px; align-items: center; white-space: nowrap; }
+  .nodo .luz { width: 10px; height: 10px; border-radius: 50%; background: #c7cfdb; }
+  .nodo.corriendo { border-color: var(--cian); } .nodo.corriendo .luz { background: var(--cian); animation: pulso 1s infinite; }
+  .nodo.ok { border-color: var(--ok); } .nodo.ok .luz { background: var(--ok); }
+  .nodo.falla { border-color: var(--ko); } .nodo.falla .luz { background: var(--ko); }
+  .nodo.omitido { opacity: .5; border-style: dashed; }
+  .nodo.hallazgos { border-color: var(--warn); } .nodo.hallazgos .luz { background: var(--warn); }
+  @keyframes pulso { 50% { opacity: .3; } }
+  .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+  .tarjeta { background: var(--card); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-height: 320px; }
+  .tarjeta { border-top: 4px solid var(--cian); }
+  .tarjeta h2 { margin: 0; font-size: 15px; padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+  .tarjeta h2 .chip { margin-left: auto; }
+  .tarjeta .resumen { padding: 8px 14px; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); min-height: 34px; }
+  .pasos { list-style: none; margin: 0; padding: 6px 0; overflow: auto; max-height: 420px; flex: 1; }
+  .pasos li { padding: 5px 14px; display: grid; grid-template-columns: 58px 92px 1fr; gap: 8px; align-items: start; animation: entra .25s ease-out; }
+  .pasos li:nth-child(odd) { background: #fafbfd; }
+  .pasos .hora { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 1px; }
+  @keyframes entra { from { transform: translateY(-4px); background: #e8f0fe; } }
+  .chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-align: center; color: #fff; background: var(--info); }
+  .chip.PASA, .chip.ok { background: var(--ok); } .chip.FALLA, .chip.falla, .chip.ERROR { background: var(--ko); }
+  .chip.HALLAZGO, .chip.HALLAZGOS, .chip.hallazgos, .chip.REVISAR { background: var(--warn); } .chip.NO-MEDIDO, .chip.OMITIDO, .chip.omitido { background: #8a96a8; }
+  .chip.corriendo { background: var(--cian); color: var(--quind); } .chip.LOG { background: #c9d2de; color: var(--ink); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 14px; }
+  .kpi { background: #f6f8fb; border-radius: 8px; padding: 8px 10px; }
+  .kpi span { display: block; color: var(--muted); font-size: 12px; }
+  .kpi b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .kpi b.mal { color: var(--ko); }
+  canvas { width: 100%; height: 140px; display: block; padding: 0 14px; }
+  .leyenda { padding: 0 14px 8px; font-size: 12px; color: var(--muted); }
+  .leyenda i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin: 0 4px 0 10px; }
+  .informes { padding: 8px 14px 12px; display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); min-height: 44px; }
+  .informes a { font-size: 13px; color: var(--quind); font-weight: 600; text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+  .final { margin-top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: none; }
+  .final table { width: 100%; border-collapse: collapse; }
+  .final th, .final td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .vacio { color: var(--muted); padding: 10px 14px; font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <img src="/quind.png" alt="Quind">
+  <div>
+    <h1>Pruebas automáticas · PayLink</h1>
+    <div class="sub">Ejecución en vivo · una prueba por tipo · datos ficticios</div>
+  </div>
+  <div class="estado-global" id="estadoGlobal">Esperando ejecución</div>
+</header>
+<main>
+  <section class="controles">
+    <label>URL <input type="url" id="url" placeholder="https://..." title="Debe tener la API de PayLink"></label>
+    <strong>Pruebas:</strong>
+    <label><input type="checkbox" name="tipo" value="api" checked> API</label>
+    <label><input type="checkbox" name="tipo" value="front" checked> Tienda</label>
+    <label><input type="checkbox" name="tipo" value="carga" checked> Rendimiento</label>
+    <label><input type="checkbox" name="tipo" value="seguridad" checked> Seguridad</label>
+    <label>Rendimiento
+      <select id="perfil">
+        <option value="corta" selected>rápido (5 usuarios, 45 s)</option>
+        <option value="carga">normal (10 usuarios, 3 min)</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="ventana" checked> Ver Chrome</label>
+    <button id="ejecutar" type="button">Ejecutar</button>
+    <span id="aviso" class="sub"></span>
+  </section>
+
+  <section class="grafo" aria-label="Grafo de coordinación">
+    <span class="nodo" data-nodo="calentar"><span class="luz"></span>Preparar</span>
+    <div class="carriles">
+      <div class="carril">
+        <span class="flecha">→</span>
+        <span class="nodo" data-nodo="api"><span class="luz"></span>1 · API</span><span class="flecha">→</span>
+        <span class="nodo" data-nodo="front"><span class="luz"></span>2 · Tienda</span><span class="flecha">→</span>
+        <span class="nodo" data-nodo="carga"><span class="luz"></span>3 · Rendimiento</span>
+      </div>
+      <div class="carril">
+        <span class="flecha">→</span>
+        <span class="nodo" data-nodo="seguridad"><span class="luz"></span>4 · Seguridad</span>
+        <span class="sub">(en paralelo)</span>
+      </div>
+    </div>
+    <span class="nodo" data-nodo="consolidar"><span class="luz"></span>Informe final</span>
+  </section>
+
+  <section class="tarjetas">
+    <article class="tarjeta" data-tipo="api">
+      <h2>1 · API: pago completo <span class="chip" data-chip>—</span></h2>
+      <div class="resumen" data-resumen>6 validaciones: crear orden, iniciar, sesión en el banco, aprobar, saldos y rechazo</div>
+      <ul class="pasos" data-pasos></ul>
+      <div class="informes" data-informes></div>
+    </article>
+    <article class="tarjeta" data-tipo="front">
+      <h2>2 · Tienda en el navegador <span class="chip" data-chip>—</span></h2>
+      <div class="resumen" data-resumen>Una compra de punta a punta en Chrome: tienda → pago → banco → resultado</div>
+      <ul class="pasos" data-pasos></ul>
+      <div class="informes" data-informes></div>
+    </article>
+    <article class="tarjeta" data-tipo="carga">
+      <h2>3 · Rendimiento <span class="chip" data-chip>—</span></h2>
+      <div class="resumen" data-resumen>Varios usuarios pagando a la vez. Pasa si el 95 % responde en menos de 1 s</div>
+      <div class="kpis">
+        <div class="kpi"><span>Usuarios</span><b id="kVus">0</b></div>
+        <div class="kpi"><span>Peticiones/s</span><b id="kRps">0</b></div>
+        <div class="kpi"><span>Respuesta 95 % (ms)</span><b id="kP95">0</b></div>
+        <div class="kpi"><span>Errores</span><b id="kErr">0 %</b></div>
+      </div>
+      <canvas id="grafica" width="600" height="140"></canvas>
+      <div class="leyenda"><i style="background:#088ba9"></i>respuesta 95 % (ms) <i style="background:#fcb601"></i>peticiones/s <i style="background:#c4321a;height:1px"></i>límite 1 s</div>
+      <ul class="pasos" data-pasos style="max-height:140px"></ul>
+      <div class="informes" data-informes></div>
+    </article>
+    <article class="tarjeta" data-tipo="seguridad">
+      <h2>4 · Seguridad básica <span class="chip" data-chip>—</span></h2>
+      <div class="resumen" data-resumen>5 revisiones sin ataques: claves, errores, rutas de administración, encabezados</div>
+      <ul class="pasos" data-pasos></ul>
+      <div class="informes" data-informes></div>
+    </article>
+  </section>
+
+  <section class="final" id="final">
+    <h2 style="margin-top:0;font-size:16px">Resultado consolidado</h2>
+    <table><thead><tr><th>Prueba</th><th>Resultado</th><th>Resumen</th></tr></thead><tbody id="filasFinal"></tbody></table>
+    <div class="informes" id="informesFinal" style="border:0;padding-left:0"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var NOMBRES = { calentar: 'Preparar', api: '1 · API: pago completo', front: '2 · Tienda en el navegador',
+                  carga: '3 · Rendimiento', seguridad: '4 · Seguridad básica', consolidar: 'Informe final' };
+  var serie = [], umbral = 1000;
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var tarjeta = function (t) { return $('.tarjeta[data-tipo="' + t + '"]'); };
+
+  function texto(el, t) { el.textContent = t; return el; }
+  function chip(estado) {
+    var c = document.createElement('span');
+    c.className = 'chip ' + String(estado || 'INFO').replace(' ', '-');
+    c.textContent = estado || 'INFO';
+    return c;
+  }
+
+  function limpiar() {
+    document.querySelectorAll('[data-pasos]').forEach(function (u) { u.innerHTML = ''; });
+    document.querySelectorAll('[data-informes]').forEach(function (u) { u.innerHTML = ''; });
+    document.querySelectorAll('[data-chip]').forEach(function (c) { c.className = 'chip'; c.textContent = '—'; });
+    document.querySelectorAll('.nodo').forEach(function (n) { n.className = 'nodo'; });
+    ['kVus', 'kRps', 'kP95'].forEach(function (id) { texto($('#' + id), '0'); });
+    texto($('#kErr'), '0 %'); $('#kP95').className = '';
+    serie = []; dibujar();
+    $('#final').style.display = 'none';
+    $('#filasFinal').innerHTML = ''; $('#informesFinal').innerHTML = '';
+  }
+
+  function agregarPaso(tipo, ev) {
+    var destino = tarjeta(tipo === 'calentar' ? 'api' : tipo);
+    if (!destino) return;
+    var li = document.createElement('li');
+    li.appendChild(texto(document.createElement('span'), ev.ts.slice(11, 19))).className = 'hora';
+    li.appendChild(chip(ev.clase === 'log' ? 'LOG' : ev.estado));
+    li.appendChild(texto(document.createElement('span'), (tipo === 'calentar' ? 'Preparar: ' : '') + ev.texto));
+    var ul = $('[data-pasos]', destino);
+    ul.appendChild(li);
+    ul.scrollTop = ul.scrollHeight;
+  }
+
+  function enlace(contenedor, etiqueta, ruta) {
+    var a = document.createElement('a');
+    a.href = '/ver/' + ruta.split('/').map(encodeURIComponent).join('/');
+    a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = etiqueta;
+    contenedor.appendChild(a);
+  }
+
+  function dibujar() {
+    var c = $('#grafica'), ctx = c.getContext('2d');
+    var w = c.width = c.clientWidth * (window.devicePixelRatio || 1), h = c.height = 140 * (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, w, h);
+    if (serie.length < 2) return;
+    var maxP = Math.max(umbral * 1.2, Math.max.apply(null, serie.map(function (s) { return s.p95; })));
+    var maxR = Math.max(1, Math.max.apply(null, serie.map(function (s) { return s.rps; })));
+    var x = function (i) { return (i / (serie.length - 1)) * (w - 4) + 2; };
+    ctx.strokeStyle = '#c4321a'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    var yU = h - (umbral / maxP) * (h - 10) - 5; ctx.beginPath(); ctx.moveTo(0, yU); ctx.lineTo(w, yU); ctx.stroke();
+    ctx.setLineDash([]); ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
+    [['p95', maxP, '#088ba9'], ['rps', maxR, '#fcb601']].forEach(function (d) {
+      ctx.strokeStyle = d[2]; ctx.beginPath();
+      serie.forEach(function (s, i) {
+        var y = h - (s[d[0]] / d[1]) * (h - 10) - 5;
+        if (i === 0) ctx.moveTo(x(i), y); else ctx.lineTo(x(i), y);
+      });
+      ctx.stroke();
+    });
+  }
+  window.addEventListener('resize', dibujar);
+
+  function procesar(ev) {
+    var tipo = ev.tipo;
+    if (ev.clase === 'ejecucion' && ev.estado === 'inicio') {
+      limpiar();
+      texto($('#estadoGlobal'), 'Ejecutando…');
+      if (ev.datos.opciones && ev.datos.opciones.url) $('#url').value = ev.datos.opciones.url;
+      $('#ejecutar').disabled = true;
+      return;
+    }
+    if (ev.clase === 'ejecucion' && ev.estado === 'fin') {
+      texto($('#estadoGlobal'), 'Terminado · ' + ev.texto);
+      $('#ejecutar').disabled = false;
+      var filas = $('#filasFinal');
+      ['calentar', 'api', 'front', 'carga', 'seguridad'].forEach(function (t) {
+        var r = (ev.datos.resultados || {})[t]; if (!r) return;
+        var tr = document.createElement('tr');
+        tr.appendChild(texto(document.createElement('td'), NOMBRES[t]));
+        var td = document.createElement('td'); td.appendChild(chip(r.estado)); tr.appendChild(td);
+        tr.appendChild(texto(document.createElement('td'), r.resumen));
+        filas.appendChild(tr);
+      });
+      $('#final').style.display = 'block';
+      return;
+    }
+    if (ev.clase === 'nodo') {
+      var n = $('.nodo[data-nodo="' + tipo + '"]');
+      if (n) n.className = 'nodo ' + ev.estado;
+      var t = tarjeta(tipo);
+      if (t) {
+        var c = $('[data-chip]', t); c.className = 'chip ' + ev.estado; c.textContent = ev.estado;
+        if (ev.estado !== 'corriendo' && ev.texto) texto($('[data-resumen]', t) || document.createElement('div'), ev.texto);
+      }
+      return;
+    }
+    if (ev.clase === 'paso' || ev.clase === 'log') { agregarPaso(tipo, ev); return; }
+    if (ev.clase === 'metrica') {
+      var d = ev.datos; umbral = d.umbral || umbral;
+      texto($('#kVus'), d.vus); texto($('#kRps'), d.rps); texto($('#kP95'), d.p95); texto($('#kErr'), d.errores_pct + ' %');
+      $('#kP95').className = d.p95 >= umbral ? 'mal' : '';
+      serie.push({ p95: d.p95, rps: d.rps }); dibujar();
+      return;
+    }
+    if (ev.clase === 'informe') {
+      if (tipo === 'consolidar') enlace($('#informesFinal'), ev.texto, ev.datos.ruta);
+      else if (tarjeta(tipo)) enlace($('[data-informes]', tarjeta(tipo)), ev.texto, ev.datos.ruta);
+    }
+  }
+
+  var fuente = new EventSource('/eventos');
+  fuente.onmessage = function (m) { procesar(JSON.parse(m.data)); };
+  // Si el panel se reinició (otra ejecución de qa.cmd), se recarga la página para no mezclar resultados.
+  fuente.onerror = function () {
+    texto($('#estadoGlobal'), 'Reconectando…');
+    fuente.close();
+    setTimeout(function () { location.reload(); }, 2000);
+  };
+
+  fetch('/api/estado').then(function (r) { return r.json(); }).then(function (e) {
+    $('#ejecutar').disabled = e.en_curso;
+    if (!$('#url').value) $('#url').value = e.url;
+  });
+
+  $('#ejecutar').addEventListener('click', function () {
+    var tipos = Array.prototype.map.call(document.querySelectorAll('input[name=tipo]:checked'), function (i) { return i.value; });
+    if (!tipos.length) { texto($('#aviso'), 'Elige al menos un tipo de prueba.'); return; }
+    texto($('#aviso'), '');
+    $('#ejecutar').disabled = true;
+    fetch('/api/ejecutar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipos: tipos, perfil_carga: $('#perfil').value, ventana: $('#ventana').checked, url: $('#url').value }) })
+      .then(function (r) { return r.json().then(function (b) { if (!r.ok) { texto($('#aviso'), b.error); $('#ejecutar').disabled = false; } }); });
+  });
+})();
+</script>
+</body>
+</html>

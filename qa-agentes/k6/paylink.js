@@ -7,7 +7,8 @@ import { check } from 'k6';
 const config = JSON.parse(open('../apis/paylink/config.json'));
 
 const TIPO = __ENV.TIPO || 'smoke';
-const BASE = config.base_url;
+// La URL se puede cambiar sin tocar el archivo: BASE_URL=https://otra-url k6 run k6/paylink.js
+const BASE = (__ENV.BASE_URL || config.base_url).replace(/\/$/, '');
 const KEY = { headers: { 'Content-Type': 'application/json', 'X-Api-Key': config.api_key } };
 const SIN_KEY = { headers: { 'Content-Type': 'application/json' } };
 const FECHA = new Date().toISOString().slice(0, 10);
@@ -15,6 +16,15 @@ const INFORME = `informes/carga/${FECHA}-paylink-${TIPO}`;
 
 const cargas = {
   smoke: { executor: 'shared-iterations', vus: 1, iterations: 1, maxDuration: '2m' },
+  // Corta: para la demo en vivo del coordinador (5 usuarios, ~45 s).
+  corta: {
+    executor: 'ramping-vus',
+    stages: [
+      { duration: '10s', target: 5 },
+      { duration: '30s', target: 5 },
+      { duration: '5s', target: 0 },
+    ],
+  },
   carga: {
     executor: 'ramping-vus',
     stages: [
@@ -53,88 +63,75 @@ export function setup() {
   }
 }
 
-function crearOrden(monto, descripcion) {
+// Cada paso tiene UNA validación con nombre claro. `verificar=false` se usa cuando el paso solo prepara otro.
+function crearOrden(monto, descripcion, verificar) {
   const r = http.post(
     `${BASE}/api/v1/payments`,
     JSON.stringify({ amount: monto, description: descripcion, returnUrl: 'https://tienda-demo.example/retorno' }),
     KEY,
   );
-  check(r, {
-    '1. crear orden responde 201': (x) => x.status === 201,
-    '1. crear orden queda CREATED': (x) => json(x).status === 'CREATED',
-  });
+  if (verificar) check(r, { '1. Crear la orden de pago (queda CREADA)': (x) => x.status === 201 && json(x).status === 'CREATED' });
   return json(r).transactionId;
 }
 
-function iniciarPago(id) {
+function iniciarPago(id, verificar) {
   const p = config.pagador;
   const r = http.post(
     `${BASE}/api/v1/payments/${id}/start`,
     JSON.stringify({ bankCode: p.banco, personType: p.tipo_persona, documentType: p.tipo_documento, documentNumber: p.documento }),
     SIN_KEY,
   );
-  check(r, {
-    '2. iniciar pago responde 200': (x) => x.status === 200,
-    '2. iniciar pago queda PENDING': (x) => json(x).status === 'PENDING',
-  });
+  if (verificar) check(r, { '2. Elegir banco e iniciar el pago (queda PENDIENTE)': (x) => x.status === 200 && json(x).status === 'PENDING' });
 }
 
-function autenticar(id) {
+function autenticar(id, verificar) {
   const p = config.pagador;
   const r = http.post(
     `${BASE}/api/v1/bank/${p.banco}/authenticate`,
     JSON.stringify({ transactionId: id, documentType: p.tipo_documento, documentNumber: p.documento, password: p.clave }),
     SIN_KEY,
   );
-  check(r, {
-    '3. autenticar en el banco responde 200': (x) => x.status === 200,
-    '3. autenticar entrega token de sesión': (x) => !!json(x).bankSessionToken,
-  });
+  if (verificar) check(r, { '3. Iniciar sesión en el banco (entrega token)': (x) => x.status === 200 && !!json(x).bankSessionToken });
   return json(r).bankSessionToken;
 }
 
 function autorizar(id, token, aprobar) {
   const p = config.pagador;
-  const r = http.post(
+  return http.post(
     `${BASE}/api/v1/bank/${p.banco}/authorize`,
     JSON.stringify({ transactionId: id, bankSessionToken: token, approve: aprobar }),
     SIN_KEY,
   );
-  return r;
 }
 
 function pagoAprobado(monto, verificarSaldos) {
-  const id = crearOrden(monto, 'Compra aprobada');
+  const id = crearOrden(monto, 'Compra aprobada', true);
   if (!id) return;
-  iniciarPago(id);
-  const token = autenticar(id);
+  iniciarPago(id, true);
+  const token = autenticar(id, true);
   if (!token) return;
-  const r = autorizar(id, token, true);
-  check(r, {
-    '4. autorizar responde 200': (x) => x.status === 200,
-    '4. pago queda APPROVED': (x) => json(x).status === 'APPROVED',
-    '4. pago aprobado sin motivo de rechazo': (x) => json(x).statusReason === null,
+  check(autorizar(id, token, true), {
+    '4. Aprobar el pago (queda APROBADO)': (x) => x.status === 200 && json(x).status === 'APPROVED',
   });
   if (verificarSaldos) {
     const saldoPagador = json(http.get(`${BASE}/api/v1/accounts/${config.cuenta_pagador}/balance`)).balance;
     const saldoComercio = json(http.get(`${BASE}/api/v1/accounts/${config.cuenta_comercio}/balance`)).balance;
     check(null, {
-      '5. saldo del pagador descontado': () => saldoPagador === config.saldo_inicial_pagador - monto,
-      '6. saldo del comercio abonado': () => saldoComercio === config.saldo_inicial_comercio + monto,
+      '5. Saldos correctos (se descuenta al pagador y se abona al comercio)': () =>
+        saldoPagador === config.saldo_inicial_pagador - monto && saldoComercio === config.saldo_inicial_comercio + monto,
     });
   }
 }
 
 function pagoRechazado(monto) {
-  const id = crearOrden(monto, 'Compra rechazada');
+  const id = crearOrden(monto, 'Compra rechazada', false);
   if (!id) return;
-  iniciarPago(id);
-  const token = autenticar(id);
+  iniciarPago(id, false);
+  const token = autenticar(id, false);
   if (!token) return;
-  const r = autorizar(id, token, false);
-  check(r, {
-    '7. rechazo responde 200': (x) => x.status === 200,
-    '7. pago queda REJECTED por el usuario': (x) => json(x).status === 'REJECTED' && json(x).statusReason === 'USER_CANCELLED',
+  check(autorizar(id, token, false), {
+    '6. Rechazar un pago (queda RECHAZADO)': (x) =>
+      x.status === 200 && json(x).status === 'REJECTED' && json(x).statusReason === 'USER_CANCELLED',
   });
 }
 
@@ -183,7 +180,7 @@ th,td{padding:.55rem .8rem;text-align:left;border-bottom:1px solid #eef}
 th{background:#eef1f6}.ok{color:#117a3d;font-weight:600}.mal{color:#b42318;font-weight:600}
 </style></head><body>
 <h1>PayLink · prueba ${TIPO}</h1>
-<div class="sub">Fecha ${FECHA} · ${config.base_url} · umbral P95 &lt; ${config.umbral_p95_ms} ms</div>
+<div class="sub">Fecha ${FECHA} · ${BASE} · umbral P95 &lt; ${config.umbral_p95_ms} ms</div>
 <div class="cards">
  <div class="card"><span>Peticiones</span><b>${fmt(v('http_reqs', 'count'), 0)}</b></div>
  <div class="card"><span>Tiempo P95</span><b class="${umbralOk ? 'ok' : 'mal'}">${fmt(p95, 0)} ms</b></div>

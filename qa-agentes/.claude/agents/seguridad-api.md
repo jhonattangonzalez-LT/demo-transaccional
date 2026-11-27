@@ -14,13 +14,13 @@ Revisas la demo de PayLink con pruebas pasivas y documentas lo que encuentras. N
 - Un ambiente de QA o de laboratorio sin autorización tampoco basta: pregunta antes.
 
 ## Qué revisas (solo pasivo)
-1. Crear un pago sin `X-Api-Key` y con una clave falsa: debe responder 401 o 403, y no crear nada.
-2. Consultar un pago inexistente sin clave: no debe mostrar datos.
-3. Errores con un ID inválido: no deben mostrar trazas de Java, nombres de clases ni rutas internas.
-4. Rutas de administración (consola de base de datos, `/actuator/env`): no deben responder 200.
-5. Encabezados de la tienda: HSTS, `X-Content-Type-Options` y protección contra clickjacking (CSP `frame-ancestors` o `X-Frame-Options`).
-6. La clave del comercio no debe aparecer en el HTML de la tienda.
-7. Acceso entre comercios (OWASP API1): hoy no se puede medir, porque la demo tiene un solo comercio. Va como «no medido».
+1. SEG-01 · Crear un pago sin `X-Api-Key` y con una clave falsa: debe responder 401 o 403, y no crear nada.
+2. SEG-02 · Errores con un ID inválido: no deben mostrar trazas de Java, nombres de clases ni rutas internas.
+3. SEG-03 · Rutas de administración (consola de base de datos, `/actuator/env`): no deben responder 200.
+4. SEG-04 · Encabezados de la tienda: HSTS, `X-Content-Type-Options` y protección contra clickjacking (CSP `frame-ancestors` o `X-Frame-Options`).
+5. SEG-05 · La clave del comercio no debe aparecer en el HTML de la tienda.
+
+Límite conocido: el acceso entre comercios (OWASP API1) no se puede medir, porque la demo tiene un solo comercio.
 
 ## Qué no haces
 - Fuerza bruta de claves o de contraseñas del banco.
