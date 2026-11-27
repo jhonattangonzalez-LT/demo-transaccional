@@ -1,0 +1,23 @@
+{
+  "nombre": "PayLink (demo transaccional)",
+  "fuente_swagger": "docs/openapi_demo_transaccional.json",
+  "fuente_datos": "docs/DATOS_DE_PRUEBA.md",
+  "base_url": "https://demo-transaccional.vercel.app",
+  "api_key": "demo-api-key-123",
+  "umbral_p95_ms": 1000,
+  "reset_al_inicio": true,
+  "pagador": {
+    "banco": "ANDINO",
+    "tipo_persona": "NATURAL",
+    "tipo_documento": "CC",
+    "documento": "1000000001",
+    "clave": "1234"
+  },
+  "monto_smoke": 150000,
+  "monto_carga": 1000,
+  "monto_rechazo": 80000,
+  "saldo_inicial_pagador": 5000000,
+  "saldo_inicial_comercio": 1000000,
+  "cuenta_pagador": "1000000001",
+  "cuenta_comercio": "9000000001"
+}
